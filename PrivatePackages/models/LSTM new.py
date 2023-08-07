@@ -34,9 +34,12 @@ class dense_layer(nn.Module):
         output_dimension,
         dropout_prob,
         batch_normalisation,
-        activation_function):
+        activation_function,
+        random_state):
 
         super().__init__()
+
+        torch.manual_seed(random_state)
 
         self.ACTIVATION_FUNCTIONS_MAP = {'relu': nn.ReLU(),
                                     'sigmoid': nn.Sigmoid(),
@@ -67,18 +70,19 @@ class residual_layer(nn.Module): ## only useable for constant
         dimension,
         dropout_prob,
         batch_normalisation,
-        activation_function):
-
-        self.batch_normalisation = batch_normalisation
+        activation_function,
+        random_state):
 
         super().__init__()
+
+        torch.manual_seed(random_state)
 
         self.ACTIVATION_FUNCTIONS_MAP = {'relu': nn.ReLU(),
                                     'sigmoid': nn.Sigmoid(),
                                     'tanh': nn.Tanh(),
                                     'softmax': nn.Softmax(dim=1)}
 
-        if self.batch_normalisation:
+        if batch_normalisation:
             self.layer = nn.Sequential(
                 nn.Linear(dimension, dimension),
                 nn.BatchNorm1d(dimension),
@@ -106,7 +110,6 @@ class residual_layer(nn.Module): ## only useable for constant
         return self.dropout(y)
 
 
-
 class LSTMRegressor(nn.Module):
 
     def __init__(self,
@@ -120,16 +123,27 @@ class LSTMRegressor(nn.Module):
             input_size,
             output_size,
             batch_normalisation,
+            attention_num_heads,
+            random_state,
+            attention_embed_dim = 0,
             dense_layer_type = 'Dense'):
 
         super(LSTMRegressor, self).__init__()
+
+        torch.manual_seed(random_state)
 
         self.lstm = nn.LSTM(input_size=input_size, 
                             hidden_size=lstm_hidden_layer_n_neurons, 
                             num_layers=lstm_n_hidden_layers, 
                             bidirectional=bi_lstm, 
                             batch_first=True, 
-                            dropout = dropout_prob)     
+                            dropout = dropout_prob)  
+
+        if attention_num_heads:
+            assert attention_embed_dim != 0, 'Attention Embedding Dimension cannot be 0'
+            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = attention_embed_dim,
+                                                        num_heads = attention_num_heads,
+                                                        dropout = dropout_prob)
 
         self.n_hidden_layers = n_hidden_layers
         self.batch_normalisation = batch_normalisation
@@ -145,19 +159,19 @@ class LSTMRegressor(nn.Module):
 
             # define layers
             for i in range(n_hidden_layers):
-                self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function))
+                self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
             
         elif self.dense_layer_type == 'Residual': 
 
             # define layers
-            self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function)
+            self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function, random_state)
             for i in range(n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
-                    self.layers.append(residual_layer(actual_neuron_list[i+1], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function))
+                    self.layers.append(residual_layer(actual_neuron_list[i+1], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
                 else:
-                    self.layers.append(residual_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function))
+                    self.layers.append(residual_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
         # final layers
         self.final_dense_layer = nn.Linear(actual_neuron_list[-2], actual_neuron_list[-1])
@@ -167,7 +181,10 @@ class LSTMRegressor(nn.Module):
 
         x, (h, c) = self.lstm(x)
 
+        attention_output, _ = self.temporal_h_attention(x, x, x)
+
         x = x[:, -1, :] # get last output of lstm
+        x = torch.cat((x, attention_output), dim = -1)
 
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
@@ -230,6 +247,8 @@ class LSTMR_pt:
                                     'MAE': nn.L1Loss(),
                                     'Huber': nn.SmoothL1Loss()}
 
+        torch.manual_seed(self.random_state)
+
 
 
     def fit(self, train_x, train_y, initial_model = None):
@@ -275,8 +294,6 @@ class LSTMR_pt:
         self.criterion.to(self.device)
 
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-
-        torch.manual_seed(self.random_state)
 
         # Create the custom datasets
         train_dataset = self.data_loader(train_x, train_y)
