@@ -129,7 +129,7 @@ class LSTMClassifier(nn.Module):
             attention_embed_dim = 0,
             dense_layer_type = 'Dense'):
 
-        super(LSTMRegressor, self).__init__()
+        super(LSTMClassifier, self).__init__()
 
         self.attention_num_heads = attention_num_heads
 
@@ -179,7 +179,7 @@ class LSTMClassifier(nn.Module):
         # final layers
         self.final_dense_layer = nn.Linear(actual_neuron_list[-2], actual_neuron_list[-1])
 
-        self.softmax = nn.SoftMax()
+        self.softmax = nn.Softmax()
 
 
     def forward(self, x, training=True):
@@ -289,11 +289,12 @@ class LSTMC_pt:
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
                             input_size = self.input_size,
-                            output_size = self.output_size,
+                            output_size = self.num_labels,
                             batch_normalisation = self.batch_normalisation,
                             dense_layer_type = self.dense_layer_type,
                             attention_num_heads=self.attention_num_heads,
-                            attention_embed_dim = self.lstm_hidden_layer_n_neurons
+                            attention_embed_dim = self.lstm_hidden_layer_n_neurons,
+                            random_state = self.random_state
                             )
 
         if initial_model is not None:
@@ -565,7 +566,8 @@ class LSTMR_pt:
                             batch_normalisation = self.batch_normalisation,
                             dense_layer_type = self.dense_layer_type,
                             attention_num_heads=self.attention_num_heads,
-                            attention_embed_dim = self.lstm_hidden_layer_n_neurons)
+                            attention_embed_dim = self.lstm_hidden_layer_n_neurons,
+                            random_state = self.random_state)
 
         if initial_model is not None:
             self.model.load_state_dict(initial_model.model.state_dict())
