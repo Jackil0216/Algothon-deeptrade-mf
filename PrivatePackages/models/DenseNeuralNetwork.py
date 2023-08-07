@@ -246,9 +246,9 @@ class DenseNeuralNetworkClassifier(nn.Module):
         
         out = self.final_dense_layer(x)
 
-        out = self.softmax(out)
+        softmax_out = self.softmax(out)
 
-        return out
+        return softmax_out
 
 
 
