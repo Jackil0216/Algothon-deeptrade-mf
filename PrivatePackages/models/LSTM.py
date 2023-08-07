@@ -188,11 +188,9 @@ class LSTMClassifier(nn.Module):
 
         if self.attention_num_heads:
             attention_output, _ = self.temporal_h_attention(x, x, x)
+            x = torch.cat((x, attention_output), dim=-1)
 
         x = x[:, -1, :] # get last output of lstm
-
-        if self.attention_num_heads:
-            x = torch.cat((x, attention_output), dim = -1)
 
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
@@ -295,7 +293,7 @@ class LSTMC_pt:
                             batch_normalisation = self.batch_normalisation,
                             dense_layer_type = self.dense_layer_type,
                             attention_num_heads=self.attention_num_heads,
-                            attention_embed_dim = self.attention_embed_dim
+                            attention_embed_dim = self.lstm_hidden_layer_n_neurons
                             )
 
         if initial_model is not None:
@@ -467,11 +465,9 @@ class LSTMRegressor(nn.Module):
 
         if self.attention_num_heads:
             attention_output, _ = self.temporal_h_attention(x, x, x)
+            x = torch.cat((x, attention_output), dim=-1)
 
         x = x[:, -1, :] # get last output of lstm
-
-        if self.attention_num_heads:
-            x = torch.cat((x, attention_output), dim = -1)
 
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
@@ -569,7 +565,7 @@ class LSTMR_pt:
                             batch_normalisation = self.batch_normalisation,
                             dense_layer_type = self.dense_layer_type,
                             attention_num_heads=self.attention_num_heads,
-                            attention_embed_dim = self.attention_embed_dim)
+                            attention_embed_dim = self.lstm_hidden_layer_n_neurons)
 
         if initial_model is not None:
             self.model.load_state_dict(initial_model.model.state_dict())
