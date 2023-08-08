@@ -14,17 +14,28 @@ class CustomDataLoader(Dataset):
     def __init__(self, x, y = None):
         self.x = torch.FloatTensor(x)
         if y is not None:
-            self.y = torch.FloatTensor(y)
+            if isinstance(y, (np.ndarray, list)):
+                self.y = torch.FloatTensor(y)
+            elif isinstance(y, (pd.core.series.Series, pd.core.frame.DataFrame)):
+                self.y = y
         self.len = len(x)
         
     def __len__(self):
         return self.len
     
     def __getitem__(self, idx):
-        try:
-            return self.x[idx], self.y[idx]
-        except:
+        if hasattr(self, y):
+            if isinstance(self.y, (pd.core.series.Series)):
+                y = torch.tensor(self.y.iloc[idx], dtype=torch.float32)
+                return self.x[idx], y
+            elif isinstance(self.y, (pd.core.frame.DataFrame)):
+                y = torch.tensor(self.y.iloc[idx].values, dtype=torch.float32)
+                return self.x[idx], y
+            else:
+                return self.x[idx], self.y[idx]
+        else:
             return self.x[idx]
+        
 
 
 class dense_layer(nn.Module):
@@ -144,9 +155,10 @@ class LSTMClassifier(nn.Module):
 
         if self.attention_num_heads:
             assert attention_embed_dim != 0, 'Attention Embedding Dimension cannot be 0'
-            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = attention_embed_dim,
+            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = (attention_embed_dim * 2 if bi_lstm else attention_embed_dim),
                                                         num_heads = self.attention_num_heads,
-                                                        dropout = dropout_prob)
+                                                        dropout = dropout_prob,
+                                                        batch_first = True)
 
         self.n_hidden_layers = n_hidden_layers
         self.batch_normalisation = batch_normalisation
@@ -154,7 +166,13 @@ class LSTMClassifier(nn.Module):
 
         self.layers = nn.ModuleList()
 
-        actual_neuron_list = [lstm_hidden_layer_n_neurons if not bi_lstm else lstm_hidden_layer_n_neurons*2] + \
+        input_n_neurons = lstm_hidden_layer_n_neurons
+        if bi_lstm:
+            input_n_neurons *= 2
+        if self.attention_num_heads:
+            input_n_neurons *= 2
+
+        actual_neuron_list = [input_n_neurons] + \
               [dense_hidden_layer_n_neurons for _ in range(self.n_hidden_layers)] + \
                 [output_size]
 
@@ -224,7 +242,7 @@ class LSTMC_pt:
                  dropout_prob,
                  batch_normalisation = False,
                  verbose = False,
-                 loss_function='MSE',
+                 loss_function='CrossEntropy',
                  data_loader = CustomDataLoader,
                  dense_layer_type = 'Dense',
                  grad_clip = False,
@@ -333,7 +351,7 @@ class LSTMC_pt:
 
                 # Forward pass
                 outputs = self.model(batch_train_x)
-                target = batch_train_y.view(-1, 1)  # Reshape target tensor to match the size of the output
+                target = batch_train_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
                 loss = self.criterion(outputs, target)
 
                 total_loss += loss.item()*len(batch_train_x)
@@ -424,9 +442,11 @@ class LSTMRegressor(nn.Module):
 
         if self.attention_num_heads:
             assert attention_embed_dim != 0, 'Attention Embedding Dimension cannot be 0'
-            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = attention_embed_dim,
+            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = (attention_embed_dim * 2 if bi_lstm else attention_embed_dim),
                                                         num_heads = self.attention_num_heads,
-                                                        dropout = dropout_prob)
+                                                        dropout = dropout_prob,
+                                                        batch_first = True)
+
 
         self.n_hidden_layers = n_hidden_layers
         self.batch_normalisation = batch_normalisation
@@ -434,7 +454,13 @@ class LSTMRegressor(nn.Module):
 
         self.layers = nn.ModuleList()
 
-        actual_neuron_list = [lstm_hidden_layer_n_neurons if not bi_lstm else lstm_hidden_layer_n_neurons*2] + \
+        input_n_neurons = lstm_hidden_layer_n_neurons
+        if bi_lstm:
+            input_n_neurons *= 2
+        if self.attention_num_heads:
+            input_n_neurons *= 2
+
+        actual_neuron_list = [input_n_neurons] + \
               [dense_hidden_layer_n_neurons for _ in range(self.n_hidden_layers)] + \
                 [output_size]
 
