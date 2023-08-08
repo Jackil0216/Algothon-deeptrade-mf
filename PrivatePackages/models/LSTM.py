@@ -24,7 +24,7 @@ class CustomDataLoader(Dataset):
         return self.len
     
     def __getitem__(self, idx):
-        if hasattr(self, y):
+        if hasattr(self, 'y'):
             if isinstance(self.y, (pd.core.series.Series)):
                 y = torch.tensor(self.y.iloc[idx], dtype=torch.float32)
                 return self.x[idx], y
