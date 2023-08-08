@@ -713,7 +713,7 @@ class JiaoCheng:
                         
                     else:
                         if type(self.parameter_choices[hyperparam][0]) is bool:
-                            combo.append(self._parameter_value_map_index[hyperparam][BOOL_MAP(row[1][hyperparam])])
+                            combo.append(self._parameter_value_map_index[hyperparam][BOOL_MAP[row[1][hyperparam]]])
                         else:
                             combo.append(self._parameter_value_map_index[hyperparam][row[1][hyperparam]])
 
