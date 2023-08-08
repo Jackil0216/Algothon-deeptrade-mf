@@ -161,9 +161,9 @@ class DenseNeuralNetworkRegressor(nn.Module):
             for i in range(n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
-                    self.layers.append(residual_layer(actual_neuron_list[i+1], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
+                    self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
                 else:
-                    self.layers.append(residual_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
+                    self.layers.append(residual_layer(actual_neuron_list[i], dropout_prob, batch_normalisation, activation_function, random_state))
 
         # final layers
         self.final_dense_layer = nn.Linear(actual_neuron_list[-2], actual_neuron_list[-1])
@@ -225,9 +225,9 @@ class DenseNeuralNetworkClassifier(nn.Module):
             for i in range(n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
-                    self.layers.append(residual_layer(actual_neuron_list[i+1], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
+                    self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
                 else:
-                    self.layers.append(residual_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
+                    self.layers.append(residual_layer(actual_neuron_list[i], dropout_prob, batch_normalisation, activation_function, random_state))
 
         # final layers
         self.final_dense_layer = nn.Linear(actual_neuron_list[-2], actual_neuron_list[-1])
