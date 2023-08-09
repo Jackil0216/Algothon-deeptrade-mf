@@ -125,7 +125,7 @@ class DenseNeuralNetworkRegressor(nn.Module):
 
     def __init__(self,
             n_hidden_layers,
-            hidden_layer_n_neurons,
+            hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
             input_size,
@@ -144,7 +144,7 @@ class DenseNeuralNetworkRegressor(nn.Module):
 
         self.layers = nn.ModuleList()
 
-        actual_neuron_list = [input_size] + hidden_layer_n_neurons + [output_size]
+        actual_neuron_list = [input_size] + hidden_layer_embed_dim + [output_size]
 
         if self.dense_layer_type == 'Dense':
 
@@ -189,7 +189,7 @@ class DenseNeuralNetworkClassifier(nn.Module):
 
     def __init__(self,
             n_hidden_layers,
-            hidden_layer_n_neurons,
+            hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
             input_size,
@@ -208,7 +208,7 @@ class DenseNeuralNetworkClassifier(nn.Module):
 
         self.layers = nn.ModuleList()
 
-        actual_neuron_list = [input_size] + hidden_layer_n_neurons + [output_size]
+        actual_neuron_list = [input_size] + hidden_layer_embed_dim + [output_size]
 
         if self.dense_layer_type == 'Dense':
 
@@ -265,7 +265,7 @@ class DNNC_const_pt:
                  num_epochs,
                  random_state,
                  dropout_prob,
-                 hidden_layer_n_neuron,
+                 hidden_layer_embed_dim,
                  batch_normalisation = False,
                  verbose = False,
                  loss_function='MSE',
@@ -281,7 +281,7 @@ class DNNC_const_pt:
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.random_state = random_state
-        self.hidden_layer_n_neuron = hidden_layer_n_neuron
+        self.hidden_layer_embed_dim = hidden_layer_embed_dim
         self.dropout_prob = dropout_prob
         self.verbose = verbose
         self.loss_function = loss_function
@@ -302,7 +302,7 @@ class DNNC_const_pt:
 
     def fit(self, train_x, train_y, initial_model = None):
 
-        self.hidden_layer_sizes = [self.hidden_layer_n_neuron for i in range(self.n_hidden_layers)]
+        self.hidden_layer_sizes = [self.hidden_layer_embed_dim for i in range(self.n_hidden_layers)]
 
         # Currently only allow univariate labels
 
@@ -618,7 +618,7 @@ class DNNR_const_pt:
                  num_epochs,
                  random_state,
                  dropout_prob,
-                 hidden_layer_n_neuron,
+                 hidden_layer_embed_dim,
                  batch_normalisation = False,
                  verbose = False,
                  loss_function='MSE',
@@ -634,7 +634,7 @@ class DNNR_const_pt:
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.random_state = random_state
-        self.hidden_layer_n_neuron = hidden_layer_n_neuron
+        self.hidden_layer_embed_dim = hidden_layer_embed_dim
         self.dropout_prob = dropout_prob
         self.verbose = verbose
         self.loss_function = loss_function
@@ -655,7 +655,7 @@ class DNNR_const_pt:
 
     def fit(self, train_x, train_y, initial_model = None):
 
-        self.hidden_layer_sizes = [self.hidden_layer_n_neuron for i in range(self.n_hidden_layers)]
+        self.hidden_layer_sizes = [self.hidden_layer_embed_dim for i in range(self.n_hidden_layers)]
 
         if type(train_y) == pd.core.frame.DataFrame:
             self.output_size = train_y.shape[1]

@@ -125,11 +125,11 @@ class residual_layer(nn.Module): ## only useable for constant
 class LSTMClassifier(nn.Module):
 
     def __init__(self,
-            lstm_hidden_layer_n_neurons,
+            lstm_hidden_layer_embed_dim,
             lstm_n_hidden_layers,
-            bi_lstm,
+            bidirectional,
             n_hidden_layers,
-            dense_hidden_layer_n_neurons,
+            dense_hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
             input_size,
@@ -147,15 +147,15 @@ class LSTMClassifier(nn.Module):
         torch.manual_seed(random_state)
 
         self.lstm = nn.LSTM(input_size=input_size, 
-                            hidden_size=lstm_hidden_layer_n_neurons, 
+                            hidden_size=lstm_hidden_layer_embed_dim, 
                             num_layers=lstm_n_hidden_layers, 
-                            bidirectional=bi_lstm, 
+                            bidirectional=bidirectional, 
                             batch_first=True, 
                             dropout = dropout_prob)  
 
         if self.attention_num_heads:
             assert attention_embed_dim != 0, 'Attention Embedding Dimension cannot be 0'
-            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = (attention_embed_dim * 2 if bi_lstm else attention_embed_dim),
+            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = (attention_embed_dim * 2 if bidirectional else attention_embed_dim),
                                                         num_heads = self.attention_num_heads,
                                                         dropout = dropout_prob,
                                                         batch_first = True)
@@ -166,14 +166,14 @@ class LSTMClassifier(nn.Module):
 
         self.layers = nn.ModuleList()
 
-        input_n_neurons = lstm_hidden_layer_n_neurons
-        if bi_lstm:
-            input_n_neurons *= 2
+        input_embed_dim = lstm_hidden_layer_embed_dim
+        if bidirectional:
+            input_embed_dim *= 2
         if self.attention_num_heads:
-            input_n_neurons *= 2
+            input_embed_dim *= 2
 
-        actual_neuron_list = [input_n_neurons] + \
-              [dense_hidden_layer_n_neurons for _ in range(self.n_hidden_layers)] + \
+        actual_neuron_list = [input_embed_dim] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
@@ -229,13 +229,13 @@ class LSTMClassifier(nn.Module):
 class LSTMC_pt:
 
     def __init__(self,
-                 lstm_hidden_layer_n_neurons,
+                 lstm_hidden_layer_embed_dim,
                  lstm_n_hidden_layers,
-                 bi_lstm,
+                 bi,
                  n_hidden_layers,
                  batch_size,
                  learning_rate,
-                 dense_hidden_layer_n_neurons,
+                 dense_hidden_layer_embed_dim,
                  activation,
                  num_epochs,
                  random_state,
@@ -250,11 +250,11 @@ class LSTMC_pt:
                  attention_embed_dim = 0,
                  **kwargs):
         
-        self.lstm_hidden_layer_n_neurons = lstm_hidden_layer_n_neurons
+        self.lstm_hidden_layer_embed_dim = lstm_hidden_layer_embed_dim
         self.lstm_n_hidden_layers = lstm_n_hidden_layers
-        self.bi_lstm = bi_lstm
+        self.bidirectional = bidirectional
         self.n_hidden_layers = n_hidden_layers
-        self.dense_hidden_layer_n_neurons = dense_hidden_layer_n_neurons
+        self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.activation = activation
         self.dropout_prob = dropout_prob
         self.batch_normalisation = batch_normalisation
@@ -299,11 +299,11 @@ class LSTMC_pt:
 
 
         # Create the model
-        self.model = LSTMClassifier(lstm_hidden_layer_n_neurons = self.lstm_hidden_layer_n_neurons,
+        self.model = LSTMClassifier(lstm_hidden_layer_embed_dim = self.lstm_hidden_layer_embed_dim,
                             lstm_n_hidden_layers = self.lstm_n_hidden_layers,
-                            bi_lstm = self.bi_lstm,
+                            bidirectional = self.bidirectional,
                             n_hidden_layers = self.n_hidden_layers,
-                            dense_hidden_layer_n_neurons = self.dense_hidden_layer_n_neurons,
+                            dense_hidden_layer_embed_dim = self.dense_hidden_layer_embed_dim,
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
                             input_size = self.input_size,
@@ -311,7 +311,7 @@ class LSTMC_pt:
                             batch_normalisation = self.batch_normalisation,
                             dense_layer_type = self.dense_layer_type,
                             attention_num_heads=self.attention_num_heads,
-                            attention_embed_dim = self.lstm_hidden_layer_n_neurons,
+                            attention_embed_dim = self.lstm_hidden_layer_embed_dim,
                             random_state = self.random_state
                             )
 
@@ -412,11 +412,11 @@ class LSTMC_pt:
 class LSTMRegressor(nn.Module):
 
     def __init__(self,
-            lstm_hidden_layer_n_neurons,
+            lstm_hidden_layer_embed_dim,
             lstm_n_hidden_layers,
-            bi_lstm,
+            bidirectional,
             n_hidden_layers,
-            dense_hidden_layer_n_neurons,
+            dense_hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
             input_size,
@@ -434,15 +434,15 @@ class LSTMRegressor(nn.Module):
         self.attention_num_heads = attention_num_heads
 
         self.lstm = nn.LSTM(input_size=input_size, 
-                            hidden_size=lstm_hidden_layer_n_neurons, 
+                            hidden_size=lstm_hidden_layer_embed_dim, 
                             num_layers=lstm_n_hidden_layers, 
-                            bidirectional=bi_lstm, 
+                            bidirectional=bidirectional, 
                             batch_first=True, 
                             dropout = dropout_prob)  
 
         if self.attention_num_heads:
             assert attention_embed_dim != 0, 'Attention Embedding Dimension cannot be 0'
-            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = (attention_embed_dim * 2 if bi_lstm else attention_embed_dim),
+            self.temporal_h_attention = nn.MultiheadAttention(embed_dim = (attention_embed_dim * 2 if bidirectional else attention_embed_dim),
                                                         num_heads = self.attention_num_heads,
                                                         dropout = dropout_prob,
                                                         batch_first = True)
@@ -454,14 +454,14 @@ class LSTMRegressor(nn.Module):
 
         self.layers = nn.ModuleList()
 
-        input_n_neurons = lstm_hidden_layer_n_neurons
-        if bi_lstm:
-            input_n_neurons *= 2
+        input_embed_dim = lstm_hidden_layer_embed_dim
+        if bidirectional:
+            input_embed_dim *= 2
         if self.attention_num_heads:
-            input_n_neurons *= 2
+            input_embed_dim *= 2
 
-        actual_neuron_list = [input_n_neurons] + \
-              [dense_hidden_layer_n_neurons for _ in range(self.n_hidden_layers)] + \
+        actual_neuron_list = [input_embed_dim] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
@@ -513,13 +513,13 @@ class LSTMRegressor(nn.Module):
 class LSTMR_pt:
 
     def __init__(self,
-                 lstm_hidden_layer_n_neurons,
+                 lstm_hidden_layer_embed_dim,
                  lstm_n_hidden_layers,
-                 bi_lstm,
+                 bidirectional,
                  n_hidden_layers,
                  batch_size,
                  learning_rate,
-                 dense_hidden_layer_n_neurons,
+                 dense_hidden_layer_embed_dim,
                  activation,
                  num_epochs,
                  random_state,
@@ -534,11 +534,11 @@ class LSTMR_pt:
                  attention_embed_dim = 0,
                  **kwargs):
         
-        self.lstm_hidden_layer_n_neurons = lstm_hidden_layer_n_neurons
+        self.lstm_hidden_layer_embed_dim = lstm_hidden_layer_embed_dim
         self.lstm_n_hidden_layers = lstm_n_hidden_layers
-        self.bi_lstm = bi_lstm
+        self.bidirectional = bidirectional
         self.n_hidden_layers = n_hidden_layers
-        self.dense_hidden_layer_n_neurons = dense_hidden_layer_n_neurons
+        self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.activation = activation
         self.dropout_prob = dropout_prob
         self.batch_normalisation = batch_normalisation
@@ -580,11 +580,11 @@ class LSTMR_pt:
 
 
         # Create the model
-        self.model = LSTMRegressor(lstm_hidden_layer_n_neurons = self.lstm_hidden_layer_n_neurons,
+        self.model = LSTMRegressor(lstm_hidden_layer_embed_dim = self.lstm_hidden_layer_embed_dim,
                             lstm_n_hidden_layers = self.lstm_n_hidden_layers,
-                            bi_lstm = self.bi_lstm,
+                            bidirectional = self.bidirectional,
                             n_hidden_layers = self.n_hidden_layers,
-                            dense_hidden_layer_n_neurons = self.dense_hidden_layer_n_neurons,
+                            dense_hidden_layer_embed_dim = self.dense_hidden_layer_embed_dim,
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
                             input_size = self.input_size,
@@ -592,7 +592,7 @@ class LSTMR_pt:
                             batch_normalisation = self.batch_normalisation,
                             dense_layer_type = self.dense_layer_type,
                             attention_num_heads=self.attention_num_heads,
-                            attention_embed_dim = self.lstm_hidden_layer_n_neurons,
+                            attention_embed_dim = self.lstm_hidden_layer_embed_dim,
                             random_state = self.random_state)
 
         if initial_model is not None:
