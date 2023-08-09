@@ -232,7 +232,7 @@ class DenseNeuralNetworkClassifier(nn.Module):
         # final layers
         self.final_dense_layer = nn.Linear(actual_neuron_list[-2], actual_neuron_list[-1])
 
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=1)
 
 
     def forward(self, x, training=True):
@@ -254,7 +254,7 @@ class DenseNeuralNetworkClassifier(nn.Module):
 
 
 
-class DNNC_const_pt:
+class DenseNeuralNetworkClassifier_const_pt:
 
     def __init__(self,
                  n_hidden_layers,
@@ -272,6 +272,7 @@ class DNNC_const_pt:
                  data_loader = CustomDataLoader,
                  grad_clip = False,
                  dense_layer_type = 'Dense',
+                 eval_metric = 'Accuracy',
                  **kwargs):
 
         self.n_hidden_layers = n_hidden_layers
@@ -289,6 +290,7 @@ class DNNC_const_pt:
         self.data_loader = data_loader
         self.dense_layer_type = dense_layer_type
         self.grad_clip = grad_clip
+        self.eval_metric = eval_metric
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -296,6 +298,8 @@ class DNNC_const_pt:
         self.LOSS_FUNCTIONS_MAP = {'CrossEntropy': nn.CrossEntropyLoss(),
                                     'KLDiv': nn.KLDivLoss(),
                                     'Hinge': nn.HingeEmbeddingLoss()}
+
+        self.EVAL_METRICS_MAP = {'Accuracy': MulticlassAccuracy, 'F1': MulticlassF1Score}
 
         torch.manual_seed(self.random_state) 
 
@@ -353,12 +357,21 @@ class DNNC_const_pt:
 
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
+        if type(self.eval_metric) == str:
+            eval_metric_function = self.EVAL_METRICS_MAP[self.eval_metric]
+        else:
+            eval_metric_function = self.eval_metric
+
         # Training loop
         for epoch in range(self.num_epochs):
 
             n_instance_observed = 0
 
             total_loss = 0
+
+            if (epoch+1)%100 == 0:
+                predictions = torch.tensor([])
+                labels = torch.tensor([])
 
             for batch_idx, (batch_train_x, batch_train_y) in enumerate(train_loader):
 
@@ -381,6 +394,13 @@ class DNNC_const_pt:
 
                 n_instance_observed += len(batch_train_x)
 
+                if (epoch+1)%100 == 0:
+                    outputs_decoded = torch.tensor([np.argmax(outputs[i].detach().numpy()) for i in range(len(batch_train_x))])
+                    targets_decoded = torch.tensor([np.argmax(target[i].detach().numpy()) for i in range(len(batch_train_x))])
+
+                    predictions = torch.cat([predictions, outputs_decoded])
+                    labels = torch.cat([labels, targets_decoded])
+
                 # Backward and optimize
                 optimizer.zero_grad()
                 loss.backward()
@@ -390,10 +410,21 @@ class DNNC_const_pt:
 
                 optimizer.step()
 
-            # Print the progress
+           # Print the progress
             if self.verbose:
                 if (epoch + 1) % 100 == 0:
-                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Loss: {total_loss/n_instance_observed:.4f}')
+                    if type(self.eval_metric) == str:
+                        metric = eval_metric_function()
+                        metric.update(labels, predictions)
+                        metric_value = metric.compute()
+                    else:
+                        metric_value = self.eval_metric(labels, predictions)
+
+                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
+
+                    if val_x is not None and val_y is not None:
+                        self.eval(val_x, val_y, self.eval_metric)
+
 
 
 
@@ -432,9 +463,71 @@ class DNNC_const_pt:
         self.model.load_state_dict(torch.load(f'{address}.pt'), map_location=self.device)
 
 
+    def eval(self, val_x, val_y, eval_metric = None):
+
+        eval_metric = None or self.eval_metric
+        
+        # Define the loss function and optimizer
+        if type(eval_metric) == str:
+            eval_metric_function = self.EVAL_METRICS_MAP[eval_metric]
+        else:
+            eval_metric_function = eval_metric
+
+        one_hot_val_y = pd.DataFrame([np.eye(self.num_labels)[self.label_encoder[val_y[i]]] for i in range(len(val_y))])
+
+        self.model.eval()
+
+        # Create the custom datasets
+        val_dataset = self.data_loader(val_x, one_hot_val_y)
+
+        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
+
+        n_instance_observed = 0
+
+        total_loss = 0
+
+        with torch.no_grad():
+
+            predictions = torch.tensor([])
+            labels = torch.tensor([])
+
+            for batch_idx, (batch_val_x, batch_val_y) in enumerate(val_loader):
 
 
-class DNNC_shrink_pt:
+                batch_val_x, batch_val_y = batch_val_x.to(self.device), batch_val_y.to(self.device)
+
+                # Forward pass
+                outputs = self.model(batch_val_x)
+                target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
+                
+                outputs_decoded = torch.tensor([np.argmax(outputs[i]) for i in range(len(batch_val_x))])
+                targets_decoded = torch.tensor([np.argmax(target[i]) for i in range(len(batch_val_x))])
+
+                predictions = torch.cat([predictions, outputs_decoded])
+                labels = torch.cat([labels, targets_decoded])
+
+                loss = self.criterion(outputs, target)
+
+                total_loss += loss.item()*len(batch_val_x)
+
+                n_instance_observed += len(batch_val_x)
+
+        if type(eval_metric) == str:
+            metric = eval_metric_function()
+            metric.update(labels, predictions)
+            metric_value = metric.compute()
+        else:
+            metric_value = eval_metric(labels, predictions)
+
+
+        print(f'\t\tVal Avg Loss: {total_loss/n_instance_observed:.4f},', f'Val {eval_metric} (Metric)', np.round(float(metric_value), 6))
+
+
+        self.model.train()
+
+
+
+class DenseNeuralNetworkClassifier_shrink_pt:
 
     def __init__(self,
                  n_hidden_layers,
@@ -450,6 +543,7 @@ class DNNC_shrink_pt:
                  loss_function='MSE',
                  data_loader = CustomDataLoader,
                  grad_clip = False,
+                 eval_metric = 'Accuracy',
                  **kwargs):
 
         self.n_hidden_layers = n_hidden_layers
@@ -465,8 +559,11 @@ class DNNC_shrink_pt:
         self.batch_normalisation = batch_normalisation
         self.data_loader = data_loader
         self.grad_clip = grad_clip
+        self.eval_metric = eval_metric
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.EVAL_METRICS_MAP = {'Accuracy': MulticlassAccuracy, 'F1': MulticlassF1Score}
 
         self.LOSS_FUNCTIONS_MAP = {'CrossEntropy': nn.CrossEntropyLoss(),
                                     'KLDiv': nn.KLDivLoss(),
@@ -526,12 +623,21 @@ class DNNC_shrink_pt:
 
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
+        if type(self.eval_metric) == str:
+            eval_metric_function = self.EVAL_METRICS_MAP[self.eval_metric]
+        else:
+            eval_metric_function = self.eval_metric
+
         # Training loop
         for epoch in range(self.num_epochs):
 
             n_instance_observed = 0
 
             total_loss = 0
+
+            if (epoch+1)%100 == 0:
+                predictions = torch.tensor([])
+                labels = torch.tensor([])
 
             for batch_idx, (batch_train_x, batch_train_y) in enumerate(train_loader):
 
@@ -553,6 +659,13 @@ class DNNC_shrink_pt:
 
                 n_instance_observed += len(batch_train_x)
 
+                if (epoch+1)%100 == 0:
+                    outputs_decoded = torch.tensor([np.argmax(outputs[i].detach().numpy()) for i in range(len(batch_train_x))])
+                    targets_decoded = torch.tensor([np.argmax(target[i].detach().numpy()) for i in range(len(batch_train_x))])
+
+                    predictions = torch.cat([predictions, outputs_decoded])
+                    labels = torch.cat([labels, targets_decoded])
+
                 # Backward and optimize
                 optimizer.zero_grad()
                 loss.backward()
@@ -562,10 +675,20 @@ class DNNC_shrink_pt:
 
                 optimizer.step()
 
-            # Print the progress
+           # Print the progress
             if self.verbose:
                 if (epoch + 1) % 100 == 0:
-                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Loss: {total_loss/n_instance_observed:.4f}')
+                    if type(self.eval_metric) == str:
+                        metric = eval_metric_function()
+                        metric.update(labels, predictions)
+                        metric_value = metric.compute()
+                    else:
+                        metric_value = self.eval_metric(labels, predictions)
+
+                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
+
+                    if val_x is not None and val_y is not None:
+                        self.eval(val_x, val_y, self.eval_metric)
 
 
 
@@ -604,10 +727,71 @@ class DNNC_shrink_pt:
         self.model.load_state_dict(torch.load(f'{address}.pt'), map_location=self.device)
 
 
+    def eval(self, val_x, val_y, eval_metric = None):
+
+        eval_metric = None or self.eval_metric
+        
+        # Define the loss function and optimizer
+        if type(eval_metric) == str:
+            eval_metric_function = self.EVAL_METRICS_MAP[eval_metric]
+        else:
+            eval_metric_function = eval_metric
+
+        one_hot_val_y = pd.DataFrame([np.eye(self.num_labels)[self.label_encoder[val_y[i]]] for i in range(len(val_y))])
+
+        self.model.eval()
+
+        # Create the custom datasets
+        val_dataset = self.data_loader(val_x, one_hot_val_y)
+
+        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
+
+        n_instance_observed = 0
+
+        total_loss = 0
+
+        with torch.no_grad():
+
+            predictions = torch.tensor([])
+            labels = torch.tensor([])
+
+            for batch_idx, (batch_val_x, batch_val_y) in enumerate(val_loader):
+
+
+                batch_val_x, batch_val_y = batch_val_x.to(self.device), batch_val_y.to(self.device)
+
+                # Forward pass
+                outputs = self.model(batch_val_x)
+                target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
+                
+                outputs_decoded = torch.tensor([np.argmax(outputs[i]) for i in range(len(batch_val_x))])
+                targets_decoded = torch.tensor([np.argmax(target[i]) for i in range(len(batch_val_x))])
+
+                predictions = torch.cat([predictions, outputs_decoded])
+                labels = torch.cat([labels, targets_decoded])
+
+                loss = self.criterion(outputs, target)
+
+                total_loss += loss.item()*len(batch_val_x)
+
+                n_instance_observed += len(batch_val_x)
+
+        if type(eval_metric) == str:
+            metric = eval_metric_function()
+            metric.update(labels, predictions)
+            metric_value = metric.compute()
+        else:
+            metric_value = eval_metric(labels, predictions)
+
+
+        print(f'\t\tVal Avg Loss: {total_loss/n_instance_observed:.4f},', f'Val {eval_metric} (Metric)', np.round(float(metric_value), 6))
+
+
+        self.model.train()
 
 
 
-class DNNR_const_pt:
+class DenseNeuralNetworkRegressor_const_pt:
 
     def __init__(self,
                  n_hidden_layers,
@@ -625,6 +809,7 @@ class DNNR_const_pt:
                  data_loader = CustomDataLoader,
                  grad_clip = False,
                  dense_layer_type = 'Dense',
+                 eval_metric = 'R2',
                  **kwargs):
 
         self.n_hidden_layers = n_hidden_layers
@@ -642,8 +827,11 @@ class DNNR_const_pt:
         self.data_loader = data_loader
         self.dense_layer_type = dense_layer_type
         self.grad_clip = grad_clip
+        self.eval_metric = eval_metric
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.EVAL_METRICS_MAP = {'R2': R2Score, 'MeanSquaredError': MeanSquaredError}
 
         
         self.LOSS_FUNCTIONS_MAP = {'MSE': nn.MSELoss(),
@@ -701,12 +889,21 @@ class DNNR_const_pt:
 
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
+        if type(self.eval_metric) == str:
+            eval_metric_function = self.EVAL_METRICS_MAP[self.eval_metric]
+        else:
+            eval_metric_function = self.eval_metric
+
         # Training loop
         for epoch in range(self.num_epochs):
 
             n_instance_observed = 0
 
             total_loss = 0
+
+            if (epoch+1)%100 == 0:
+                predictions = torch.tensor([])
+                labels = torch.tensor([])
 
             for batch_idx, (batch_train_x, batch_train_y) in enumerate(train_loader):
 
@@ -730,6 +927,11 @@ class DNNR_const_pt:
 
                 n_instance_observed += len(batch_train_x)
 
+                if (epoch+1)%100 == 0:
+
+                    predictions = torch.cat([predictions, outputs])
+                    labels = torch.cat([labels, target])
+
                 # Backward and optimize
                 optimizer.zero_grad()
                 loss.backward()
@@ -739,11 +941,20 @@ class DNNR_const_pt:
 
                 optimizer.step()
 
-            # Print the progress
+             # Print the progress
             if self.verbose:
                 if (epoch + 1) % 100 == 0:
-                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Loss: {total_loss/n_instance_observed:.4f}')
+                    if type(self.eval_metric) == str:
+                        metric = eval_metric_function()
+                        metric.update(labels, predictions)
+                        metric_value = metric.compute()
+                    else:
+                        metric_value = self.eval_metric(labels, predictions)
 
+                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
+
+                    if val_x is not None and val_y is not None:
+                        self.eval(val_x, val_y, self.eval_metric)
 
 
     def predict(self, x):
@@ -778,11 +989,70 @@ class DNNR_const_pt:
 
         self.model.load_state_dict(torch.load(f'{address}.pt'), map_location=self.device)
 
+    
+    def eval(self, val_x, val_y, eval_metric = None):
+
+        eval_metric = None or self.eval_metric
+        
+        # Define the loss function and optimizer
+        if type(eval_metric) == str:
+            eval_metric_function = self.EVAL_METRICS_MAP[eval_metric]
+        else:
+            eval_metric_function = eval_metric
+
+        self.model.eval()
+
+        # Create the custom datasets
+        val_dataset = self.data_loader(val_x, val_y)
+
+        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
+
+        n_instance_observed = 0
+
+        total_loss = 0
+
+        with torch.no_grad():
+
+            predictions = torch.tensor([])
+            labels = torch.tensor([])
+
+            for batch_idx, (batch_val_x, batch_val_y) in enumerate(val_loader):
+
+
+                batch_val_x, batch_val_y = batch_val_x.to(self.device), batch_val_y.to(self.device)
+
+                # Forward pass
+                outputs = self.model(batch_val_x)
+                target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
+
+                predictions = torch.cat([predictions, outputs])
+                labels = torch.cat([labels, target])
+
+                loss = self.criterion(outputs, target)
+
+                total_loss += loss.item()*len(batch_val_x)
+
+                n_instance_observed += len(batch_val_x)
+
+        if type(eval_metric) == str:
+            metric = eval_metric_function()
+            metric.update(labels, predictions)
+            metric_value = metric.compute()
+        else:
+            metric_value = eval_metric(labels, predictions)
+
+
+        print(f'\t\tVal Avg Loss: {total_loss/n_instance_observed:.4f},', f'Val {eval_metric} (Metric)', np.round(float(metric_value), 6))
+
+
+        self.model.train()
 
 
 
 
-class DNNR_shrink_pt:
+
+
+class DenseNeuralNetworkRegressor_shrink_pt:
 
     def __init__(self,
                  n_hidden_layers,
@@ -798,6 +1068,7 @@ class DNNR_shrink_pt:
                  loss_function='MSE',
                  data_loader = CustomDataLoader,
                  grad_clip = False,
+                 eval_metric = 'R2',
                  **kwargs):
 
         self.n_hidden_layers = n_hidden_layers
@@ -813,6 +1084,9 @@ class DNNR_shrink_pt:
         self.batch_normalisation = batch_normalisation
         self.data_loader = data_loader
         self.grad_clip = grad_clip
+        self.eval_metric = eval_metric
+
+        self.EVAL_METRICS_MAP = {'R2': R2Score, 'MeanSquaredError': MeanSquaredError}
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -871,12 +1145,21 @@ class DNNR_shrink_pt:
 
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
+        if type(self.eval_metric) == str:
+            eval_metric_function = self.EVAL_METRICS_MAP[self.eval_metric]
+        else:
+            eval_metric_function = self.eval_metric
+
         # Training loop
         for epoch in range(self.num_epochs):
 
             n_instance_observed = 0
 
             total_loss = 0
+
+            if (epoch+1)%100 == 0:
+                predictions = torch.tensor([])
+                labels = torch.tensor([])
 
             for batch_idx, (batch_train_x, batch_train_y) in enumerate(train_loader):
 
@@ -898,6 +1181,11 @@ class DNNR_shrink_pt:
 
                 n_instance_observed += len(batch_train_x)
 
+                if (epoch+1)%100 == 0:
+
+                    predictions = torch.cat([predictions, outputs])
+                    labels = torch.cat([labels, target])
+
                 # Backward and optimize
                 optimizer.zero_grad()
                 loss.backward()
@@ -910,7 +1198,17 @@ class DNNR_shrink_pt:
             # Print the progress
             if self.verbose:
                 if (epoch + 1) % 100 == 0:
-                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Loss: {total_loss/n_instance_observed:.4f}')
+                    if type(self.eval_metric) == str:
+                        metric = eval_metric_function()
+                        metric.update(labels, predictions)
+                        metric_value = metric.compute()
+                    else:
+                        metric_value = self.eval_metric(labels, predictions)
+
+                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
+
+                    if val_x is not None and val_y is not None:
+                        self.eval(val_x, val_y, self.eval_metric)
 
 
 
@@ -945,3 +1243,61 @@ class DNNR_shrink_pt:
     def load(self, address):
 
         self.model.load_state_dict(torch.load(f'{address}.pt'), map_location=self.device)
+
+    
+    def eval(self, val_x, val_y, eval_metric = None):
+
+        eval_metric = None or self.eval_metric
+        
+        # Define the loss function and optimizer
+        if type(eval_metric) == str:
+            eval_metric_function = self.EVAL_METRICS_MAP[eval_metric]
+        else:
+            eval_metric_function = eval_metric
+
+        self.model.eval()
+
+        # Create the custom datasets
+        val_dataset = self.data_loader(val_x, val_y)
+
+        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
+
+        n_instance_observed = 0
+
+        total_loss = 0
+
+        with torch.no_grad():
+
+            predictions = torch.tensor([])
+            labels = torch.tensor([])
+
+            for batch_idx, (batch_val_x, batch_val_y) in enumerate(val_loader):
+
+
+                batch_val_x, batch_val_y = batch_val_x.to(self.device), batch_val_y.to(self.device)
+
+                # Forward pass
+                outputs = self.model(batch_val_x)
+                target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
+
+                predictions = torch.cat([predictions, outputs])
+                labels = torch.cat([labels, target])
+
+                loss = self.criterion(outputs, target)
+
+                total_loss += loss.item()*len(batch_val_x)
+
+                n_instance_observed += len(batch_val_x)
+
+        if type(eval_metric) == str:
+            metric = eval_metric_function()
+            metric.update(labels, predictions)
+            metric_value = metric.compute()
+        else:
+            metric_value = eval_metric(labels, predictions)
+
+
+        print(f'\t\tVal Avg Loss: {total_loss/n_instance_observed:.4f},', f'Val {eval_metric} (Metric)', np.round(float(metric_value), 6))
+
+
+        self.model.train()

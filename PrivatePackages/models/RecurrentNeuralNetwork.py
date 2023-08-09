@@ -648,6 +648,7 @@ class LongShortTermMemoryRegressor_pt:
         self.grad_clip = grad_clip
         self.attention_num_heads = attention_num_heads
         self.attention_embed_dim = attention_embed_dim
+        self.eval_metric = eval_metric
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -1392,6 +1393,7 @@ class RecurrentNeuralNetworkRegressor_pt:
         self.grad_clip = grad_clip
         self.attention_num_heads = attention_num_heads
         self.attention_embed_dim = attention_embed_dim
+        self.eval_metric = eval_metric
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -2136,6 +2138,7 @@ class GatedRecurrentUnitRegressor_pt:
         self.grad_clip = grad_clip
         self.attention_num_heads = attention_num_heads
         self.attention_embed_dim = attention_embed_dim
+        self.eval_metric = eval_metric
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
