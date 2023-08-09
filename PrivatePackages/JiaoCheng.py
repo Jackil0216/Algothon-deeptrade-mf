@@ -583,7 +583,10 @@ class JiaoCheng:
 
         # get time and fit
         start = time.time()
-        clf.fit(tmp_train_x, self.train_y)
+        # try:
+        clf.fit(tmp_train_x, self.train_y, val_x = tmp_val_x, val_y = self.val_y)
+        # except TypeError:
+        #     clf.fit(tmp_train_x, self.train_y)
         end = time.time()
 
         # get predicted labels/values for three datasets
