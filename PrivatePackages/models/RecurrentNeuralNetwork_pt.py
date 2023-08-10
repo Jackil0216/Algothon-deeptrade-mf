@@ -390,7 +390,10 @@ class LongShortTermMemoryClassifier_pt:
 
             # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -487,6 +490,9 @@ class LongShortTermMemoryClassifier_pt:
                 total_loss += loss.item()*len(batch_val_x)
 
                 n_instance_observed += len(batch_val_x)
+        
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
 
         if type(eval_metric) == str:
             metric = eval_metric_function()
@@ -762,7 +768,12 @@ class LongShortTermMemoryRegressor_pt:
 
             # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -852,6 +863,9 @@ class LongShortTermMemoryRegressor_pt:
                 total_loss += loss.item()*len(batch_val_x)
 
                 n_instance_observed += len(batch_val_x)
+
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
 
         if type(eval_metric) == str:
             metric = eval_metric_function()
@@ -1135,7 +1149,12 @@ class RecurrentNeuralNetworkClassifier_pt:
 
             # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -1232,6 +1251,9 @@ class RecurrentNeuralNetworkClassifier_pt:
                 total_loss += loss.item()*len(batch_val_x)
 
                 n_instance_observed += len(batch_val_x)
+
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
 
         if type(eval_metric) == str:
             metric = eval_metric_function()
@@ -1507,7 +1529,12 @@ class RecurrentNeuralNetworkRegressor_pt:
 
             # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -1597,6 +1624,9 @@ class RecurrentNeuralNetworkRegressor_pt:
                 total_loss += loss.item()*len(batch_val_x)
 
                 n_instance_observed += len(batch_val_x)
+
+        predictions = predictions.detatch().numpy()
+        labels = labels.detatch().numpy()
 
         if type(eval_metric) == str:
             metric = eval_metric_function()
@@ -1880,7 +1910,12 @@ class GatedRecurrentUnitClassifier_pt:
 
             # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -1978,6 +2013,9 @@ class GatedRecurrentUnitClassifier_pt:
 
                 n_instance_observed += len(batch_val_x)
 
+        predictions = predictions.detatch().numpy()
+        labels = labels.detatch().numpy()
+        
         if type(eval_metric) == str:
             metric = eval_metric_function()
             metric.update(labels, predictions)
@@ -2252,7 +2290,12 @@ class GatedRecurrentUnitRegressor_pt:
 
             # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+                    
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -2342,6 +2385,9 @@ class GatedRecurrentUnitRegressor_pt:
                 total_loss += loss.item()*len(batch_val_x)
 
                 n_instance_observed += len(batch_val_x)
+
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
 
         if type(eval_metric) == str:
             metric = eval_metric_function()

@@ -321,7 +321,6 @@ class TemporalConvolutionalNeuralNetworkRegressor_pt:
                  dense_n_hidden_layers,
                  dense_hidden_layer_embed_dim,
                  dropout_prob,
-                 output_size,
                  batch_size,
                  learning_rate,
                  num_epochs,
@@ -347,7 +346,6 @@ class TemporalConvolutionalNeuralNetworkRegressor_pt:
         self.dense_n_hidden_layers = dense_n_hidden_layers
         self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.dropout_prob = dropout_prob
-        self.output_size = output_size
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.num_epochs = num_epochs
@@ -474,7 +472,12 @@ class TemporalConvolutionalNeuralNetworkRegressor_pt:
 
             # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -564,6 +567,9 @@ class TemporalConvolutionalNeuralNetworkRegressor_pt:
                 total_loss += loss.item()*len(batch_val_x)
 
                 n_instance_observed += len(batch_val_x)
+
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
 
         if type(eval_metric) == str:
             metric = eval_metric_function()

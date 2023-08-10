@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 
 from torch.utils.data import Dataset, DataLoader
+from torcheval.metrics import MeanSquaredError, R2Score, MulticlassAccuracy, MulticlassF1Score
 
 
 
@@ -304,7 +305,7 @@ class DenseNeuralNetworkClassifier_const_pt:
         torch.manual_seed(self.random_state) 
 
 
-    def fit(self, train_x, train_y, initial_model = None):
+    def fit(self, train_x, train_y, initial_model = None, val_x = None, val_y = None):
 
         self.hidden_layer_sizes = [self.hidden_layer_embed_dim for i in range(self.n_hidden_layers)]
 
@@ -412,7 +413,12 @@ class DenseNeuralNetworkClassifier_const_pt:
 
            # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -512,6 +518,9 @@ class DenseNeuralNetworkClassifier_const_pt:
 
                 n_instance_observed += len(batch_val_x)
 
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
+
         if type(eval_metric) == str:
             metric = eval_metric_function()
             metric.update(labels, predictions)
@@ -573,7 +582,7 @@ class DenseNeuralNetworkClassifier_shrink_pt:
 
 
 
-    def fit(self, train_x, train_y, initial_model=None):
+    def fit(self, train_x, train_y, initial_model = None, val_x = None, val_y = None):
 
         labels = list(set(train_y))
         labels.sort()
@@ -677,7 +686,12 @@ class DenseNeuralNetworkClassifier_shrink_pt:
 
            # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -776,6 +790,9 @@ class DenseNeuralNetworkClassifier_shrink_pt:
 
                 n_instance_observed += len(batch_val_x)
 
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
+
         if type(eval_metric) == str:
             metric = eval_metric_function()
             metric.update(labels, predictions)
@@ -841,7 +858,7 @@ class DenseNeuralNetworkRegressor_const_pt:
         torch.manual_seed(self.random_state) 
 
 
-    def fit(self, train_x, train_y, initial_model = None):
+    def fit(self, train_x, train_y, initial_model = None, val_x = None, val_y = None):
 
         self.hidden_layer_sizes = [self.hidden_layer_embed_dim for i in range(self.n_hidden_layers)]
 
@@ -943,7 +960,12 @@ class DenseNeuralNetworkRegressor_const_pt:
 
              # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -1034,6 +1056,9 @@ class DenseNeuralNetworkRegressor_const_pt:
 
                 n_instance_observed += len(batch_val_x)
 
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
+
         if type(eval_metric) == str:
             metric = eval_metric_function()
             metric.update(labels, predictions)
@@ -1098,7 +1123,7 @@ class DenseNeuralNetworkRegressor_shrink_pt:
 
 
 
-    def fit(self, train_x, train_y, initial_model=None):
+    def fit(self, train_x, train_y, initial_model = None, val_x = None, val_y = None):
 
         if type(train_y) == pd.core.frame.DataFrame:
             self.output_size = train_y.shape[1]
@@ -1197,7 +1222,12 @@ class DenseNeuralNetworkRegressor_shrink_pt:
 
             # Print the progress
             if self.verbose:
+
                 if (epoch + 1) % 100 == 0:
+
+                    predictions = predictions.detach().numpy()
+                    labels = labels.detach().numpy()
+                    
                     if type(self.eval_metric) == str:
                         metric = eval_metric_function()
                         metric.update(labels, predictions)
@@ -1288,6 +1318,9 @@ class DenseNeuralNetworkRegressor_shrink_pt:
                 total_loss += loss.item()*len(batch_val_x)
 
                 n_instance_observed += len(batch_val_x)
+
+        predictions = predictions.detach().numpy()
+        labels = labels.detach().numpy()
 
         if type(eval_metric) == str:
             metric = eval_metric_function()
