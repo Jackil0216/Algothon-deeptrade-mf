@@ -398,8 +398,8 @@ class DenseNeuralNetworkClassifier_const_pt:
                     outputs_decoded = torch.tensor([np.argmax(outputs[i].detach().numpy()) for i in range(len(batch_train_x))])
                     targets_decoded = torch.tensor([np.argmax(target[i].detach().numpy()) for i in range(len(batch_train_x))])
 
-                    predictions = torch.cat([predictions, outputs_decoded])
-                    labels = torch.cat([labels, targets_decoded])
+                    predictions = torch.cat([predictions, outputs_decoded.to(torch.device('cpu'))])
+                    labels = torch.cat([labels, targets_decoded.to(torch.device('cpu'))])
 
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -503,8 +503,8 @@ class DenseNeuralNetworkClassifier_const_pt:
                 outputs_decoded = torch.tensor([np.argmax(outputs[i]) for i in range(len(batch_val_x))])
                 targets_decoded = torch.tensor([np.argmax(target[i]) for i in range(len(batch_val_x))])
 
-                predictions = torch.cat([predictions, outputs_decoded])
-                labels = torch.cat([labels, targets_decoded])
+                predictions = torch.cat([predictions, outputs_decoded.to(torch.device('cpu'))])
+                labels = torch.cat([labels, targets_decoded.to(torch.device('cpu'))])
 
                 loss = self.criterion(outputs, target)
 
@@ -663,8 +663,8 @@ class DenseNeuralNetworkClassifier_shrink_pt:
                     outputs_decoded = torch.tensor([np.argmax(outputs[i].detach().numpy()) for i in range(len(batch_train_x))])
                     targets_decoded = torch.tensor([np.argmax(target[i].detach().numpy()) for i in range(len(batch_train_x))])
 
-                    predictions = torch.cat([predictions, outputs_decoded])
-                    labels = torch.cat([labels, targets_decoded])
+                    predictions = torch.cat([predictions, outputs_decoded.to(torch.device('cpu'))])
+                    labels = torch.cat([labels, targets_decoded.to(torch.device('cpu'))])
 
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -767,8 +767,8 @@ class DenseNeuralNetworkClassifier_shrink_pt:
                 outputs_decoded = torch.tensor([np.argmax(outputs[i]) for i in range(len(batch_val_x))])
                 targets_decoded = torch.tensor([np.argmax(target[i]) for i in range(len(batch_val_x))])
 
-                predictions = torch.cat([predictions, outputs_decoded])
-                labels = torch.cat([labels, targets_decoded])
+                predictions = torch.cat([predictions, outputs_decoded.to(torch.device('cpu'))])
+                labels = torch.cat([labels, targets_decoded.to(torch.device('cpu'))])
 
                 loss = self.criterion(outputs, target)
 
@@ -929,8 +929,8 @@ class DenseNeuralNetworkRegressor_const_pt:
 
                 if (epoch+1)%100 == 0:
 
-                    predictions = torch.cat([predictions, outputs])
-                    labels = torch.cat([labels, target])
+                    predictions = torch.cat([predictions, outputs.to(torch.device('cpu'))])
+                    labels = torch.cat([labels, target.to(torch.device('cpu'))])
 
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -1025,8 +1025,8 @@ class DenseNeuralNetworkRegressor_const_pt:
                 outputs = self.model(batch_val_x)
                 target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
 
-                predictions = torch.cat([predictions, outputs])
-                labels = torch.cat([labels, target])
+                predictions = torch.cat([predictions, outputs.to(torch.device('cpu'))])
+                labels = torch.cat([labels, target.to(torch.device('cpu'))])
 
                 loss = self.criterion(outputs, target)
 
@@ -1183,8 +1183,8 @@ class DenseNeuralNetworkRegressor_shrink_pt:
 
                 if (epoch+1)%100 == 0:
 
-                    predictions = torch.cat([predictions, outputs])
-                    labels = torch.cat([labels, target])
+                    predictions = torch.cat([predictions, outputs.to(torch.device('cpu'))])
+                    labels = torch.cat([labels, target.to(torch.device('cpu'))])
 
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -1280,8 +1280,8 @@ class DenseNeuralNetworkRegressor_shrink_pt:
                 outputs = self.model(batch_val_x)
                 target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
 
-                predictions = torch.cat([predictions, outputs])
-                labels = torch.cat([labels, target])
+                predictions = torch.cat([predictions, outputs.to(torch.device('cpu'))])
+                labels = torch.cat([labels, target.to(torch.device('cpu'))])
 
                 loss = self.criterion(outputs, target)
 
