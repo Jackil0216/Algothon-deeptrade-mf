@@ -122,7 +122,7 @@ class residual_layer(nn.Module): ## only useable for constant
 
 
 
-class Convolutional1DLayer(nn.module):
+class Convolutional1DLayer(nn.Module):
 
     def __init__(self,
         input_channel,
@@ -154,7 +154,7 @@ class Convolutional1DLayer(nn.module):
         self.POOL_MAP = {'MaxPool': nn.MaxPool1d, 'AvgPool': nn.AvgPool1d}
 
         self.convolution_layer = nn.Conv1d(in_channels = input_channel,  
-                                    out_channel = output_channel,
+                                    out_channels = output_channel,
                                     kernel_size = convolution_kernel_dim,
                                     stride = convolution_stride,
                                     padding = convolution_padding,
@@ -239,7 +239,7 @@ class T_CNNR(nn.Module):
                                             batch_normalisation = batch_normalisation,
                                             pool_type = pool_type,
                                             pool_kernel = pool_kernel,
-                                            andom_state=random_state,
+                                            random_state=random_state,
                                             input_window_size = lookback_window_size))
             
             lookback_window_size = np.ceil(lookback_window_size/pool_kernel)
@@ -309,7 +309,6 @@ class T_CNNR(nn.Module):
 class TemporalConvolutionalNeuralNetworkRegressor_pt:
 
     def __init__(self,
-                 n_features,
                  lookback_window_size,
                  cnn_n_hidden_layers,
                  output_channels_per_input_channel,
@@ -334,7 +333,6 @@ class TemporalConvolutionalNeuralNetworkRegressor_pt:
                  eval_metric = 'R2',
                  **kwargs):
         
-        self.n_features = n_features
         self.lookback_window_size = lookback_window_size
         self.cnn_n_hidden_layers = cnn_n_hidden_layers
         self.output_channels_per_input_channel = output_channels_per_input_channel
@@ -386,7 +384,7 @@ class TemporalConvolutionalNeuralNetworkRegressor_pt:
 
 
         # Create the model
-        self.model = T_CNNR(n_features=self.n_features,
+        self.model = T_CNNR(n_features=self.input_size,
                     lookback_window_size = self.lookback_window_size,
                     cnn_n_hidden_layers = self.cnn_n_hidden_layers,
                     output_channels_per_input_channel = self.output_channels_per_input_channel,
