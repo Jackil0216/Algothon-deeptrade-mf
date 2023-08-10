@@ -129,7 +129,7 @@ class LSTMClassifier(nn.Module):
             recurrent_hidden_layer_embed_dim,
             recurrent_n_hidden_layers,
             bidirectional,
-            n_hidden_layers,
+            dense_n_hidden_layers,
             dense_hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
@@ -161,7 +161,7 @@ class LSTMClassifier(nn.Module):
                                                         dropout = dropout_prob,
                                                         batch_first = True)
 
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.batch_normalisation = batch_normalisation
         self.dense_layer_type = dense_layer_type
 
@@ -174,13 +174,13 @@ class LSTMClassifier(nn.Module):
             input_embed_dim *= 2
 
         actual_neuron_list = [input_embed_dim] + \
-              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.dense_n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
 
             # define layers
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
                 self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
             
@@ -188,7 +188,7 @@ class LSTMClassifier(nn.Module):
 
             # define layers
             self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function, random_state)
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
                     self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
@@ -214,7 +214,7 @@ class LSTMClassifier(nn.Module):
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
         
-        for i in range(self.n_hidden_layers):
+        for i in range(self.dense_n_hidden_layers):
             x = self.layers[i](x)
         
         out = self.final_dense_layer(x)
@@ -233,7 +233,7 @@ class LongShortTermMemoryClassifier_pt:
                  recurrent_hidden_layer_embed_dim,
                  recurrent_n_hidden_layers,
                  bidirectional,
-                 n_hidden_layers,
+                 dense_n_hidden_layers,
                  batch_size,
                  learning_rate,
                  dense_hidden_layer_embed_dim,
@@ -255,7 +255,7 @@ class LongShortTermMemoryClassifier_pt:
         self.recurrent_hidden_layer_embed_dim = recurrent_hidden_layer_embed_dim
         self.recurrent_n_hidden_layers = recurrent_n_hidden_layers
         self.bidirectional = bidirectional
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.activation = activation
         self.dropout_prob = dropout_prob
@@ -307,7 +307,7 @@ class LongShortTermMemoryClassifier_pt:
         self.model = LSTMClassifier(recurrent_hidden_layer_embed_dim = self.recurrent_hidden_layer_embed_dim,
                             recurrent_n_hidden_layers = self.recurrent_n_hidden_layers,
                             bidirectional = self.bidirectional,
-                            n_hidden_layers = self.n_hidden_layers,
+                            dense_n_hidden_layers = self.dense_n_hidden_layers,
                             dense_hidden_layer_embed_dim = self.dense_hidden_layer_embed_dim,
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
@@ -509,7 +509,7 @@ class LSTMRegressor(nn.Module):
             recurrent_hidden_layer_embed_dim,
             recurrent_n_hidden_layers,
             bidirectional,
-            n_hidden_layers,
+            dense_n_hidden_layers,
             dense_hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
@@ -542,7 +542,7 @@ class LSTMRegressor(nn.Module):
                                                         batch_first = True)
 
 
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.batch_normalisation = batch_normalisation
         self.dense_layer_type = dense_layer_type
 
@@ -555,13 +555,13 @@ class LSTMRegressor(nn.Module):
             input_embed_dim *= 2
 
         actual_neuron_list = [input_embed_dim] + \
-              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.dense_n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
 
             # define layers
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
                 self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
             
@@ -569,7 +569,7 @@ class LSTMRegressor(nn.Module):
 
             # define layers
             self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function, random_state)
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
                     self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
@@ -593,7 +593,7 @@ class LSTMRegressor(nn.Module):
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
         
-        for i in range(self.n_hidden_layers):
+        for i in range(self.dense_n_hidden_layers):
             x = self.layers[i](x)
         
         out = self.final_dense_layer(x)
@@ -610,7 +610,7 @@ class LongShortTermMemoryRegressor_pt:
                  recurrent_hidden_layer_embed_dim,
                  recurrent_n_hidden_layers,
                  bidirectional,
-                 n_hidden_layers,
+                 dense_n_hidden_layers,
                  batch_size,
                  learning_rate,
                  dense_hidden_layer_embed_dim,
@@ -632,7 +632,7 @@ class LongShortTermMemoryRegressor_pt:
         self.recurrent_hidden_layer_embed_dim = recurrent_hidden_layer_embed_dim
         self.recurrent_n_hidden_layers = recurrent_n_hidden_layers
         self.bidirectional = bidirectional
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.activation = activation
         self.dropout_prob = dropout_prob
@@ -681,7 +681,7 @@ class LongShortTermMemoryRegressor_pt:
         self.model = LSTMRegressor(recurrent_hidden_layer_embed_dim = self.recurrent_hidden_layer_embed_dim,
                             recurrent_n_hidden_layers = self.recurrent_n_hidden_layers,
                             bidirectional = self.bidirectional,
-                            n_hidden_layers = self.n_hidden_layers,
+                            dense_n_hidden_layers = self.dense_n_hidden_layers,
                             dense_hidden_layer_embed_dim = self.dense_hidden_layer_embed_dim,
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
@@ -874,7 +874,7 @@ class RNNClassifier(nn.Module):
             recurrent_hidden_layer_embed_dim,
             recurrent_n_hidden_layers,
             bidirectional,
-            n_hidden_layers,
+            dense_n_hidden_layers,
             dense_hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
@@ -906,7 +906,7 @@ class RNNClassifier(nn.Module):
                                                         dropout = dropout_prob,
                                                         batch_first = True)
 
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.batch_normalisation = batch_normalisation
         self.dense_layer_type = dense_layer_type
 
@@ -919,13 +919,13 @@ class RNNClassifier(nn.Module):
             input_embed_dim *= 2
 
         actual_neuron_list = [input_embed_dim] + \
-              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.dense_n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
 
             # define layers
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
                 self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
             
@@ -933,7 +933,7 @@ class RNNClassifier(nn.Module):
 
             # define layers
             self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function, random_state)
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
                     self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
@@ -959,7 +959,7 @@ class RNNClassifier(nn.Module):
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
         
-        for i in range(self.n_hidden_layers):
+        for i in range(self.dense_n_hidden_layers):
             x = self.layers[i](x)
         
         out = self.final_dense_layer(x)
@@ -978,7 +978,7 @@ class RecurrentNeuralNetworkClassifier_pt:
                  recurrent_hidden_layer_embed_dim,
                  recurrent_n_hidden_layers,
                  bidirectional,
-                 n_hidden_layers,
+                 dense_n_hidden_layers,
                  batch_size,
                  learning_rate,
                  dense_hidden_layer_embed_dim,
@@ -1000,7 +1000,7 @@ class RecurrentNeuralNetworkClassifier_pt:
         self.recurrent_hidden_layer_embed_dim = recurrent_hidden_layer_embed_dim
         self.recurrent_n_hidden_layers = recurrent_n_hidden_layers
         self.bidirectional = bidirectional
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.activation = activation
         self.dropout_prob = dropout_prob
@@ -1052,7 +1052,7 @@ class RecurrentNeuralNetworkClassifier_pt:
         self.model = RNNClassifier(recurrent_hidden_layer_embed_dim = self.recurrent_hidden_layer_embed_dim,
                             recurrent_n_hidden_layers = self.recurrent_n_hidden_layers,
                             bidirectional = self.bidirectional,
-                            n_hidden_layers = self.n_hidden_layers,
+                            dense_n_hidden_layers = self.dense_n_hidden_layers,
                             dense_hidden_layer_embed_dim = self.dense_hidden_layer_embed_dim,
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
@@ -1254,7 +1254,7 @@ class RNNRegressor(nn.Module):
             recurrent_hidden_layer_embed_dim,
             recurrent_n_hidden_layers,
             bidirectional,
-            n_hidden_layers,
+            dense_n_hidden_layers,
             dense_hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
@@ -1287,7 +1287,7 @@ class RNNRegressor(nn.Module):
                                                         batch_first = True)
 
 
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.batch_normalisation = batch_normalisation
         self.dense_layer_type = dense_layer_type
 
@@ -1300,13 +1300,13 @@ class RNNRegressor(nn.Module):
             input_embed_dim *= 2
 
         actual_neuron_list = [input_embed_dim] + \
-              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.dense_n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
 
             # define layers
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
                 self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
             
@@ -1314,7 +1314,7 @@ class RNNRegressor(nn.Module):
 
             # define layers
             self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function, random_state)
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
                     self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
@@ -1338,7 +1338,7 @@ class RNNRegressor(nn.Module):
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
         
-        for i in range(self.n_hidden_layers):
+        for i in range(self.dense_n_hidden_layers):
             x = self.layers[i](x)
         
         out = self.final_dense_layer(x)
@@ -1355,7 +1355,7 @@ class RecurrentNeuralNetworkRegressor_pt:
                  recurrent_hidden_layer_embed_dim,
                  recurrent_n_hidden_layers,
                  bidirectional,
-                 n_hidden_layers,
+                 dense_n_hidden_layers,
                  batch_size,
                  learning_rate,
                  dense_hidden_layer_embed_dim,
@@ -1377,7 +1377,7 @@ class RecurrentNeuralNetworkRegressor_pt:
         self.recurrent_hidden_layer_embed_dim = recurrent_hidden_layer_embed_dim
         self.recurrent_n_hidden_layers = recurrent_n_hidden_layers
         self.bidirectional = bidirectional
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.activation = activation
         self.dropout_prob = dropout_prob
@@ -1426,7 +1426,7 @@ class RecurrentNeuralNetworkRegressor_pt:
         self.model = RNNRegressor(recurrent_hidden_layer_embed_dim = self.recurrent_hidden_layer_embed_dim,
                             recurrent_n_hidden_layers = self.recurrent_n_hidden_layers,
                             bidirectional = self.bidirectional,
-                            n_hidden_layers = self.n_hidden_layers,
+                            dense_n_hidden_layers = self.dense_n_hidden_layers,
                             dense_hidden_layer_embed_dim = self.dense_hidden_layer_embed_dim,
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
@@ -1619,7 +1619,7 @@ class GRUClassifier(nn.Module):
             recurrent_hidden_layer_embed_dim,
             recurrent_n_hidden_layers,
             bidirectional,
-            n_hidden_layers,
+            dense_n_hidden_layers,
             dense_hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
@@ -1651,7 +1651,7 @@ class GRUClassifier(nn.Module):
                                                         dropout = dropout_prob,
                                                         batch_first = True)
 
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.batch_normalisation = batch_normalisation
         self.dense_layer_type = dense_layer_type
 
@@ -1664,13 +1664,13 @@ class GRUClassifier(nn.Module):
             input_embed_dim *= 2
 
         actual_neuron_list = [input_embed_dim] + \
-              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.dense_n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
 
             # define layers
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
                 self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
             
@@ -1678,7 +1678,7 @@ class GRUClassifier(nn.Module):
 
             # define layers
             self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function, random_state)
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
                     self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
@@ -1704,7 +1704,7 @@ class GRUClassifier(nn.Module):
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
         
-        for i in range(self.n_hidden_layers):
+        for i in range(self.dense_n_hidden_layers):
             x = self.layers[i](x)
         
         out = self.final_dense_layer(x)
@@ -1723,7 +1723,7 @@ class GatedRecurrentUnitClassifier_pt:
                  recurrent_hidden_layer_embed_dim,
                  recurrent_n_hidden_layers,
                  bidirectional,
-                 n_hidden_layers,
+                 dense_n_hidden_layers,
                  batch_size,
                  learning_rate,
                  dense_hidden_layer_embed_dim,
@@ -1745,7 +1745,7 @@ class GatedRecurrentUnitClassifier_pt:
         self.recurrent_hidden_layer_embed_dim = recurrent_hidden_layer_embed_dim
         self.recurrent_n_hidden_layers = recurrent_n_hidden_layers
         self.bidirectional = bidirectional
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.activation = activation
         self.dropout_prob = dropout_prob
@@ -1797,7 +1797,7 @@ class GatedRecurrentUnitClassifier_pt:
         self.model = GRUClassifier(recurrent_hidden_layer_embed_dim = self.recurrent_hidden_layer_embed_dim,
                             recurrent_n_hidden_layers = self.recurrent_n_hidden_layers,
                             bidirectional = self.bidirectional,
-                            n_hidden_layers = self.n_hidden_layers,
+                            dense_n_hidden_layers = self.dense_n_hidden_layers,
                             dense_hidden_layer_embed_dim = self.dense_hidden_layer_embed_dim,
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
@@ -1999,7 +1999,7 @@ class GRURegressor(nn.Module):
             recurrent_hidden_layer_embed_dim,
             recurrent_n_hidden_layers,
             bidirectional,
-            n_hidden_layers,
+            dense_n_hidden_layers,
             dense_hidden_layer_embed_dim,
             activation_function,
             dropout_prob,
@@ -2032,7 +2032,7 @@ class GRURegressor(nn.Module):
                                                         batch_first = True)
 
 
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.batch_normalisation = batch_normalisation
         self.dense_layer_type = dense_layer_type
 
@@ -2045,13 +2045,13 @@ class GRURegressor(nn.Module):
             input_embed_dim *= 2
 
         actual_neuron_list = [input_embed_dim] + \
-              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.dense_n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
 
             # define layers
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
                 self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
             
@@ -2059,7 +2059,7 @@ class GRURegressor(nn.Module):
 
             # define layers
             self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function, random_state)
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
                     self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
@@ -2083,7 +2083,7 @@ class GRURegressor(nn.Module):
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
         
-        for i in range(self.n_hidden_layers):
+        for i in range(self.dense_n_hidden_layers):
             x = self.layers[i](x)
         
         out = self.final_dense_layer(x)
@@ -2100,7 +2100,7 @@ class GatedRecurrentUnitRegressor_pt:
                  recurrent_hidden_layer_embed_dim,
                  recurrent_n_hidden_layers,
                  bidirectional,
-                 n_hidden_layers,
+                 dense_n_hidden_layers,
                  batch_size,
                  learning_rate,
                  dense_hidden_layer_embed_dim,
@@ -2122,7 +2122,7 @@ class GatedRecurrentUnitRegressor_pt:
         self.recurrent_hidden_layer_embed_dim = recurrent_hidden_layer_embed_dim
         self.recurrent_n_hidden_layers = recurrent_n_hidden_layers
         self.bidirectional = bidirectional
-        self.n_hidden_layers = n_hidden_layers
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.dense_hidden_layer_embed_dim = dense_hidden_layer_embed_dim
         self.activation = activation
         self.dropout_prob = dropout_prob
@@ -2171,7 +2171,7 @@ class GatedRecurrentUnitRegressor_pt:
         self.model = GRURegressor(recurrent_hidden_layer_embed_dim = self.recurrent_hidden_layer_embed_dim,
                             recurrent_n_hidden_layers = self.recurrent_n_hidden_layers,
                             bidirectional = self.bidirectional,
-                            n_hidden_layers = self.n_hidden_layers,
+                            dense_n_hidden_layers = self.dense_n_hidden_layers,
                             dense_hidden_layer_embed_dim = self.dense_hidden_layer_embed_dim,
                             activation_function = self.activation,
                             dropout_prob = self.dropout_prob,
