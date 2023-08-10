@@ -122,7 +122,7 @@ class residual_layer(nn.Module): ## only useable for constant
 
 
 
-class Convolutional2DLayer(nn.module):
+class Convolutional1DLayer(nn.module):
 
     def __init__(self,
         input_channel,
@@ -130,8 +130,14 @@ class Convolutional2DLayer(nn.module):
         convolution_kernel_dim,
         convolution_stride,
         activation_function,
+        batch_normalisation, 
         pool_type,
         pool_kernel, # TODO: Dilation?
+        random_state,
+        input_window_size,
+        convolution_padding = 'same',
+        convolution_padding_mode = 'zeros',
+        pooling_padding = True,
         ):
 
         super().__init__()
@@ -142,22 +148,38 @@ class Convolutional2DLayer(nn.module):
                                     'sigmoid': nn.Sigmoid(),
                                     'tanh': nn.Tanh(),
                                     'softmax': nn.Softmax(dim=1)}
+        
+        self.batch_normalisation = batch_normalisation
 
-        self.POOL_MAP = {'MaxPool': nn.MaxPool, 'AvgPool': AvgPool}
+        self.POOL_MAP = {'MaxPool': nn.MaxPool1d, 'AvgPool': nn.AvgPool1d}
 
-        self.convolution_layer = nn.Conv2d(in_channels = in_channel, 
-                                    out_channel = out_channel,
+        self.convolution_layer = nn.Conv1d(in_channels = input_channel,  
+                                    out_channel = output_channel,
                                     kernel_size = convolution_kernel_dim,
-                                    stride = convolution_stride)
+                                    stride = convolution_stride,
+                                    padding = convolution_padding,
+                                    padding_mode = convolution_padding_mode)
+        
+        if batch_normalisation:
+            self.batchnorm_layer = nn.BatchNorm1d(output_channel)
 
         self.activation = self.ACTIVATION_FUNCTIONS_MAP[activation_function]
 
-        self.pooling_layer = self.POOL_MAP[pool_type](kernel_size = pool_kernel, stride = pool_kernel)
+        if input_window_size <= pool_kernel:
+            pooling_padding = 0 # prevent when it can't condense down to 1 value
+
+        self.pooling_layer = self.POOL_MAP[pool_type](kernel_size = pool_kernel, 
+                                                      stride = pool_kernel, 
+                                                      padding = pooling_padding)
 
 
 
     def forward(self, x):
         y = self.convolution_layer(x)
+
+        if self.batch_normalisation:
+            y = self.batchnorm_layer(y)
+
         y = self.activation(y)
 
         return self.pooling_layer(y)
@@ -165,64 +187,84 @@ class Convolutional2DLayer(nn.module):
 
 
 
-class TS_CNNRegressor_AllFeatures(nn.Module):
+class TemporalConvolutionalNeuralNetworkRegressor(nn.Module):
 
     def __init__(self,
-            cnn_n_layers,
-            output_channels_per_convolutional_layer,
+            n_features,
+            lookback_window_size,
+            cnn_n_hidden_layers,
+            output_channels_per_input_channel,
             convolution_kernel_dim,
             convolution_stride,
             activation_function,
             pool_type,
             pool_kernel,
-            n_hidden_layers,
+            dense_n_hidden_layers,
             dense_hidden_layer_embed_dim,
-            activation_function,
             dropout_prob,
             output_size,
             batch_normalisation,
             random_state,
             dense_layer_type = 'Dense'):
 
-        super(LSTMRegressor, self).__init__()
+        super(TemporalConvolutionalNeuralNetworkRegressor, self).__init__()
 
         torch.manual_seed(random_state)
 
-        self.cnn_n_layers = cnn_n_layers
+        self.cnn_n_hidden_layers = cnn_n_hidden_layers
 
-        self.convolutional2dlayers = nn.ModuleList()
+        self.convolutional1dlayers = nn.ModuleList()
 
-        for i in range(self.cnn_n_layers): ##TODO: 算一下
+        # first convolutional layer
+        self.convolutional1dlayers.append(Convolutional1DLayer(input_channel = n_features, 
+                                    output_channel = output_channels_per_input_channel * n_features,
+                                    convolution_kernel_dim=convolution_kernel_dim,
+                                    convolution_stride = convolution_stride, 
+                                    activation_function = activation_function,
+                                    batch_normalisation = batch_normalisation,
+                                    pool_type = pool_type,
+                                    pool_kernel = pool_kernel,
+                                    random_state=random_state,
+                                    input_window_size = lookback_window_size))
 
-            self.convolutional2dlayers.append(TS_CNNRegressor_AllFeatures(input_channel = 1 if i == 1 else output_channels_per_convolutional_layer*i, 
-                        output_channel =output_channels_per_convolutional_layer,
-                        convolution_kernel_dim=convolutional_kernel_dim, # TODO: 输入时count ndim
-                        stride = convolution_stride, 
-                        activation_function = activation_function,
-                        pool_type = pool_type,
-                        pool_kernel = pool_kernel))
+        lookback_window_size = np.ceil(lookback_window_size/pool_kernel)
 
+        for i in range(1, self.cnn_n_hidden_layers):
+            
+            self.convolutional1dlayers.append(Convolutional1DLayer(input_channel = n_features* output_channels_per_input_channel * 2**(i-1), 
+                                            output_channel = n_features * output_channels_per_input_channel* 2**(i),
+                                            convolution_kernel_dim=convolution_kernel_dim, 
+                                            convolution_stride = convolution_stride, 
+                                            activation_function = activation_function,
+                                            batch_normalisation = batch_normalisation,
+                                            pool_type = pool_type,
+                                            pool_kernel = pool_kernel,
+                                            andom_state=random_state,
+                                            input_window_size = lookback_window_size))
+            
+            lookback_window_size = np.ceil(lookback_window_size/pool_kernel)
 
-        self.n_hidden_layers = n_hidden_layers
+            if lookback_window_size == 1:
+                print('WARNING: remaining n_values per channel == 1, consider reducing the number of hidden layers or increasing the initial lookback window. Further hidden layers with unchanging dimensions serve no benefit.')
+
+        self.dense_n_hidden_layers = dense_n_hidden_layers
         self.batch_normalisation = batch_normalisation
         self.dense_layer_type = dense_layer_type
 
         self.layers = nn.ModuleList()
 
-        input_embed_dim = recurrent_hidden_layer_embed_dim # 改
-        if bidirectional:
-            input_embed_dim *= 2
-        if self.attention_num_heads:
-            input_embed_dim *= 2
+        # this is for non dilation only
+        input_embed_dim = (2**(self.cnn_n_hidden_layers-1)) * \
+                    (n_features * output_channels_per_input_channel) *  lookback_window_size
 
         actual_neuron_list = [input_embed_dim] + \
-              [dense_hidden_layer_embed_dim for _ in range(self.n_hidden_layers)] + \
+              [dense_hidden_layer_embed_dim for _ in range(self.dense_n_hidden_layers)] + \
                 [output_size]
 
         if self.dense_layer_type == 'Dense':
 
             # define layers
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
                 self.layers.append(dense_layer(actual_neuron_list[i], actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
 
             
@@ -230,7 +272,7 @@ class TS_CNNRegressor_AllFeatures(nn.Module):
 
             # define layers
             self.input_layer = dense_layer(actual_neuron_list[0], actual_neuron_list[1], dropout_prob, batch_normalisation, activation_function, random_state)
-            for i in range(n_hidden_layers):
+            for i in range(dense_n_hidden_layers):
 
                 if i == 0: # previously counted input layer as first layer, now get extra input layer to get hidden layer to right size before residual, so add make sure 1st layer in this loop has correct input size
                     self.layers.append(residual_layer(actual_neuron_list[i+1], dropout_prob, batch_normalisation, activation_function, random_state))
@@ -242,19 +284,19 @@ class TS_CNNRegressor_AllFeatures(nn.Module):
 
 
     def forward(self, x, training=True):
+        
+        # get vector of matrix into the right shape (each channel with each other)
+        x = torch.tensor(x, dtype=torch.float32).transpose(1, 2)
 
-        x, (h, c) = self.lstm(x)
-
-        if self.attention_num_heads:
-            attention_output, _ = self.temporal_h_attention(x, x, x)
-            x = torch.cat((x, attention_output), dim=-1)
-
-        x = x[:, -1, :] # get last output of lstm
+        for i in range(self.cnn_n_hidden_layers):
+            x = self.convolutional2dlayers[i](x)
+        
+        x = x.squeeze(-1).view(2, -1)
 
         if self.dense_layer_type == 'Residual': # only for dense neural network
             x = self.input_layer(x)
         
-        for i in range(self.n_hidden_layers):
+        for i in range(self.dense_n_hidden_layers):
             x = self.layers[i](x)
         
         out = self.final_dense_layer(x)
