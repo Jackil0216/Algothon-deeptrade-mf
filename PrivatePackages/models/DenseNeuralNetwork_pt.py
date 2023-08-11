@@ -370,11 +370,13 @@ class DenseNeuralNetworkClassifier_const_pt:
 
             total_loss = 0
 
-            if (epoch+1)%100 == 0:
-                predictions = torch.tensor([])
-                labels = torch.tensor([])
+            if self.verbose:
+                print('Epoch:', epoch+1)
+                predictions = torch.tensor([]).to(self.device)
+                labels = torch.tensor([]).to(self.device)
 
-            for batch_idx, (batch_train_x, batch_train_y) in enumerate(train_loader):
+            for batch_idx, (batch_train_x, batch_train_y) in tqdm(enumerate(train_loader)):
+
 
                 batch_train_x, batch_train_y = batch_train_x.to(self.device), batch_train_y.to(self.device)
 
@@ -383,24 +385,16 @@ class DenseNeuralNetworkClassifier_const_pt:
                 target = batch_train_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
                 loss = self.criterion(outputs, target)
 
-                # Lasso regularization
-                l1_regularization = torch.tensor(0.).to(self.device)
-
-                for param in self.model.parameters():
-                    l1_regularization += torch.norm(param, p=1)
-                
-                loss += self.lambda_lasso * l1_regularization
-
                 total_loss += loss.item()*len(batch_train_x)
 
                 n_instance_observed += len(batch_train_x)
 
-                if (epoch+1)%100 == 0:
-                    outputs_decoded = torch.tensor([np.argmax(outputs[i].detach().numpy()) for i in range(len(batch_train_x))])
-                    targets_decoded = torch.tensor([np.argmax(target[i].detach().numpy()) for i in range(len(batch_train_x))])
+                if self.verbose:
+                    outputs_decoded = torch.tensor([np.argmax(outputs[i].detach()) for i in range(len(batch_train_x))]) # todo: nn.argmax
+                    targets_decoded = torch.tensor([np.argmax(target[i].detach()) for i in range(len(batch_train_x))])
 
-                    predictions = torch.cat([predictions, outputs_decoded.to(torch.device('cpu'))])
-                    labels = torch.cat([labels, targets_decoded.to(torch.device('cpu'))])
+                    predictions = torch.cat([predictions, outputs_decoded])
+                    labels = torch.cat([labels, targets_decoded])
 
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -411,31 +405,26 @@ class DenseNeuralNetworkClassifier_const_pt:
 
                 optimizer.step()
 
-           # Print the progress
+            # Print the progress
             if self.verbose:
+ 
+                if type(self.eval_metric) == str:
+                    metric = eval_metric_function().to(self.device)
+                    metric.update(labels, predictions)
+                    metric_value = metric.compute()
+                else:
+                    metric_value = self.eval_metric(labels.to(torch.device('cpu')), predictions.to(torch.device('cpu')))
 
-                if (epoch + 1) % 100 == 0:
+                print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
 
-                    predictions = predictions.detach().numpy()
-                    labels = labels.detach().numpy()
-
-                    if type(self.eval_metric) == str:
-                        metric = eval_metric_function()
-                        metric.update(labels, predictions)
-                        metric_value = metric.compute()
-                    else:
-                        metric_value = self.eval_metric(labels, predictions)
-
-                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
-
-                    if val_x is not None and val_y is not None:
-                        self.eval(val_x, val_y, self.eval_metric)
+                if val_x is not None and val_y is not None:
+                    self.eval(val_x, val_y, self.eval_metric)
 
 
 
 
     def predict(self, x):
-    
+
         self.model.eval()
 
         predictions = []
@@ -447,8 +436,10 @@ class DenseNeuralNetworkClassifier_const_pt:
         with torch.no_grad():
 
             for batch_idx, batch_predict_x in enumerate(predict_loader):
+
+                batch_predict_x = batch_predict_x.to(self.device)
  
-                batch_prediction = self.model(batch_predict_x, training=False).cpu()
+                batch_prediction = self.model(batch_predict_x, training=False).to(torch.device('cpu'))
                 batch_prediction_numpy = batch_prediction.numpy().reshape(-1, self.num_labels)
                 predictions.extend(batch_prediction_numpy)
         
@@ -494,8 +485,8 @@ class DenseNeuralNetworkClassifier_const_pt:
 
         with torch.no_grad():
 
-            predictions = torch.tensor([])
-            labels = torch.tensor([])
+            predictions = torch.tensor([]).to(self.device)
+            labels = torch.tensor([]).to(self.device)
 
             for batch_idx, (batch_val_x, batch_val_y) in enumerate(val_loader):
 
@@ -506,11 +497,11 @@ class DenseNeuralNetworkClassifier_const_pt:
                 outputs = self.model(batch_val_x)
                 target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
                 
-                outputs_decoded = torch.tensor([np.argmax(outputs[i]) for i in range(len(batch_val_x))])
-                targets_decoded = torch.tensor([np.argmax(target[i]) for i in range(len(batch_val_x))])
+                outputs_decoded = torch.tensor([np.argmax(outputs[i].detach()) for i in range(len(batch_val_x))])
+                targets_decoded = torch.tensor([np.argmax(target[i].detach()) for i in range(len(batch_val_x))])
 
-                predictions = torch.cat([predictions, outputs_decoded.to(torch.device('cpu'))])
-                labels = torch.cat([labels, targets_decoded.to(torch.device('cpu'))])
+                predictions = torch.cat([predictions, outputs_decoded])
+                labels = torch.cat([labels, targets_decoded])
 
                 loss = self.criterion(outputs, target)
 
@@ -518,21 +509,19 @@ class DenseNeuralNetworkClassifier_const_pt:
 
                 n_instance_observed += len(batch_val_x)
 
-        predictions = predictions.detach().numpy()
-        labels = labels.detach().numpy()
-
         if type(eval_metric) == str:
-            metric = eval_metric_function()
+            metric = eval_metric_function().to(self.device)
             metric.update(labels, predictions)
             metric_value = metric.compute()
         else:
-            metric_value = eval_metric(labels, predictions)
+            metric_value = eval_metric(labels.to(torch.device('cpu')), predictions.to(torch.device('cpu')))
 
 
         print(f'\t\tVal Avg Loss: {total_loss/n_instance_observed:.4f},', f'Val {eval_metric} (Metric)', np.round(float(metric_value), 6))
 
 
         self.model.train()
+
 
 
 
@@ -644,11 +633,13 @@ class DenseNeuralNetworkClassifier_shrink_pt:
 
             total_loss = 0
 
-            if (epoch+1)%100 == 0:
-                predictions = torch.tensor([])
-                labels = torch.tensor([])
+            if self.verbose:
+                print('Epoch:', epoch+1)
+                predictions = torch.tensor([]).to(self.device)
+                labels = torch.tensor([]).to(self.device)
 
-            for batch_idx, (batch_train_x, batch_train_y) in enumerate(train_loader):
+            for batch_idx, (batch_train_x, batch_train_y) in tqdm(enumerate(train_loader)):
+
 
                 batch_train_x, batch_train_y = batch_train_x.to(self.device), batch_train_y.to(self.device)
 
@@ -657,23 +648,16 @@ class DenseNeuralNetworkClassifier_shrink_pt:
                 target = batch_train_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
                 loss = self.criterion(outputs, target)
 
-                # Lasso regularization
-                l1_regularization = torch.tensor(0.).to(self.device)
-
-                for param in self.model.parameters():
-                    l1_regularization += torch.norm(param, p=1)
-                loss += self.lambda_lasso * l1_regularization
-
                 total_loss += loss.item()*len(batch_train_x)
 
                 n_instance_observed += len(batch_train_x)
 
-                if (epoch+1)%100 == 0:
-                    outputs_decoded = torch.tensor([np.argmax(outputs[i].detach().numpy()) for i in range(len(batch_train_x))])
-                    targets_decoded = torch.tensor([np.argmax(target[i].detach().numpy()) for i in range(len(batch_train_x))])
+                if self.verbose:
+                    outputs_decoded = torch.tensor([np.argmax(outputs[i].detach()) for i in range(len(batch_train_x))]) # todo: nn.argmax
+                    targets_decoded = torch.tensor([np.argmax(target[i].detach()) for i in range(len(batch_train_x))])
 
-                    predictions = torch.cat([predictions, outputs_decoded.to(torch.device('cpu'))])
-                    labels = torch.cat([labels, targets_decoded.to(torch.device('cpu'))])
+                    predictions = torch.cat([predictions, outputs_decoded])
+                    labels = torch.cat([labels, targets_decoded])
 
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -684,30 +668,25 @@ class DenseNeuralNetworkClassifier_shrink_pt:
 
                 optimizer.step()
 
-           # Print the progress
+            # Print the progress
             if self.verbose:
+ 
+                if type(self.eval_metric) == str:
+                    metric = eval_metric_function().to(self.device)
+                    metric.update(labels, predictions)
+                    metric_value = metric.compute()
+                else:
+                    metric_value = self.eval_metric(labels.to(torch.device('cpu')), predictions.to(torch.device('cpu')))
 
-                if (epoch + 1) % 100 == 0:
+                print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
 
-                    predictions = predictions.detach().numpy()
-                    labels = labels.detach().numpy()
-
-                    if type(self.eval_metric) == str:
-                        metric = eval_metric_function()
-                        metric.update(labels, predictions)
-                        metric_value = metric.compute()
-                    else:
-                        metric_value = self.eval_metric(labels, predictions)
-
-                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
-
-                    if val_x is not None and val_y is not None:
-                        self.eval(val_x, val_y, self.eval_metric)
+                if val_x is not None and val_y is not None:
+                    self.eval(val_x, val_y, self.eval_metric)
 
 
 
     def predict(self, x):
-    
+
         self.model.eval()
 
         predictions = []
@@ -719,8 +698,10 @@ class DenseNeuralNetworkClassifier_shrink_pt:
         with torch.no_grad():
 
             for batch_idx, batch_predict_x in enumerate(predict_loader):
+
+                batch_predict_x = batch_predict_x.to(self.device)
  
-                batch_prediction = self.model(batch_predict_x, training=False).cpu()
+                batch_prediction = self.model(batch_predict_x, training=False).to(torch.device('cpu'))
                 batch_prediction_numpy = batch_prediction.numpy().reshape(-1, self.num_labels)
                 predictions.extend(batch_prediction_numpy)
         
@@ -766,8 +747,8 @@ class DenseNeuralNetworkClassifier_shrink_pt:
 
         with torch.no_grad():
 
-            predictions = torch.tensor([])
-            labels = torch.tensor([])
+            predictions = torch.tensor([]).to(self.device)
+            labels = torch.tensor([]).to(self.device)
 
             for batch_idx, (batch_val_x, batch_val_y) in enumerate(val_loader):
 
@@ -778,11 +759,11 @@ class DenseNeuralNetworkClassifier_shrink_pt:
                 outputs = self.model(batch_val_x)
                 target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
                 
-                outputs_decoded = torch.tensor([np.argmax(outputs[i]) for i in range(len(batch_val_x))])
-                targets_decoded = torch.tensor([np.argmax(target[i]) for i in range(len(batch_val_x))])
+                outputs_decoded = torch.tensor([np.argmax(outputs[i].detach()) for i in range(len(batch_val_x))])
+                targets_decoded = torch.tensor([np.argmax(target[i].detach()) for i in range(len(batch_val_x))])
 
-                predictions = torch.cat([predictions, outputs_decoded.to(torch.device('cpu'))])
-                labels = torch.cat([labels, targets_decoded.to(torch.device('cpu'))])
+                predictions = torch.cat([predictions, outputs_decoded])
+                labels = torch.cat([labels, targets_decoded])
 
                 loss = self.criterion(outputs, target)
 
@@ -790,15 +771,12 @@ class DenseNeuralNetworkClassifier_shrink_pt:
 
                 n_instance_observed += len(batch_val_x)
 
-        predictions = predictions.detach().numpy()
-        labels = labels.detach().numpy()
-
         if type(eval_metric) == str:
-            metric = eval_metric_function()
+            metric = eval_metric_function().to(self.device)
             metric.update(labels, predictions)
             metric_value = metric.compute()
         else:
-            metric_value = eval_metric(labels, predictions)
+            metric_value = eval_metric(labels.to(torch.device('cpu')), predictions.to(torch.device('cpu')))
 
 
         print(f'\t\tVal Avg Loss: {total_loss/n_instance_observed:.4f},', f'Val {eval_metric} (Metric)', np.round(float(metric_value), 6))
@@ -911,18 +889,18 @@ class DenseNeuralNetworkRegressor_const_pt:
         else:
             eval_metric_function = self.eval_metric
 
-        # Training loop
+         # Training loop
         for epoch in range(self.num_epochs):
 
             n_instance_observed = 0
 
             total_loss = 0
 
-            if (epoch+1)%100 == 0:
-                predictions = torch.tensor([])
-                labels = torch.tensor([])
+            if self.verbose:
+                predictions = torch.tensor([]).to(self.device)
+                labels = torch.tensor([]).to(self.device)
 
-            for batch_idx, (batch_train_x, batch_train_y) in enumerate(train_loader):
+            for batch_idx, (batch_train_x, batch_train_y) in tqdm(enumerate(train_loader)):
 
 
                 batch_train_x, batch_train_y = batch_train_x.to(self.device), batch_train_y.to(self.device)
@@ -932,22 +910,14 @@ class DenseNeuralNetworkRegressor_const_pt:
                 target = batch_train_y.view(-1, 1)  # Reshape target tensor to match the size of the output
                 loss = self.criterion(outputs, target)
 
-                # Lasso regularization
-                l1_regularization = torch.tensor(0.).to(self.device)
-
-                for param in self.model.parameters():
-                    l1_regularization += torch.norm(param, p=1)
-                
-                loss += self.lambda_lasso * l1_regularization
-
                 total_loss += loss.item()*len(batch_train_x)
 
                 n_instance_observed += len(batch_train_x)
 
-                if (epoch+1)%100 == 0:
+                if self.verbose:
 
-                    predictions = torch.cat([predictions, outputs.to(torch.device('cpu'))])
-                    labels = torch.cat([labels, target.to(torch.device('cpu'))])
+                    predictions = torch.cat([predictions, outputs.detach()])
+                    labels = torch.cat([labels, target.detach()])
 
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -958,29 +928,25 @@ class DenseNeuralNetworkRegressor_const_pt:
 
                 optimizer.step()
 
-             # Print the progress
+            # Print the progress
             if self.verbose:
 
-                if (epoch + 1) % 100 == 0:
+                if type(self.eval_metric) == str:
+                    metric = eval_metric_function().to(self.device)
+                    metric.update(labels, predictions)
+                    metric_value = metric.compute()
+                else:
+                    metric_value = self.eval_metric(labels.to(torch.device('cpu')), predictions.to(torch.device('cpu'))) # todo: easy for crashes when converting back to cpu
 
-                    predictions = predictions.detach().numpy()
-                    labels = labels.detach().numpy()
+                print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
 
-                    if type(self.eval_metric) == str:
-                        metric = eval_metric_function()
-                        metric.update(labels, predictions)
-                        metric_value = metric.compute()
-                    else:
-                        metric_value = self.eval_metric(labels, predictions)
+                if val_x is not None and val_y is not None:
+                    self.eval(val_x, val_y, self.eval_metric)
 
-                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
-
-                    if val_x is not None and val_y is not None:
-                        self.eval(val_x, val_y, self.eval_metric)
 
 
     def predict(self, x):
-    
+
         self.model.eval()
 
         predictions = []
@@ -992,24 +958,25 @@ class DenseNeuralNetworkRegressor_const_pt:
         with torch.no_grad():
 
             for batch_idx, batch_predict_x in enumerate(predict_loader):
+
+                batch_predict_x = batch_predict_x.to(self.device)
  
-                batch_prediction = self.model(batch_predict_x, training=False).cpu()
+                batch_prediction = self.model(batch_predict_x, training=False).to(torch.device('cpu'))
                 batch_prediction_numpy = batch_prediction.numpy().flatten()
                 predictions.extend(batch_prediction_numpy)
 
         return predictions
     
 
-
     def save(self, address):
         
         torch.save(self.model.state_dict(), f'{address}.pt')
     
 
-
     def load(self, address):
 
         self.model.load_state_dict(torch.load(f'{address}.pt'), map_location=self.device)
+
 
     
     def eval(self, val_x, val_y, eval_metric = None):
@@ -1035,8 +1002,8 @@ class DenseNeuralNetworkRegressor_const_pt:
 
         with torch.no_grad():
 
-            predictions = torch.tensor([])
-            labels = torch.tensor([])
+            predictions = torch.tensor([]).to(self.device)
+            labels = torch.tensor([]).to(self.device)
 
             for batch_idx, (batch_val_x, batch_val_y) in enumerate(val_loader):
 
@@ -1047,8 +1014,8 @@ class DenseNeuralNetworkRegressor_const_pt:
                 outputs = self.model(batch_val_x)
                 target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
 
-                predictions = torch.cat([predictions, outputs.to(torch.device('cpu'))])
-                labels = torch.cat([labels, target.to(torch.device('cpu'))])
+                predictions = torch.cat([predictions, outputs.detach()])
+                labels = torch.cat([labels, target.detach()])
 
                 loss = self.criterion(outputs, target)
 
@@ -1056,15 +1023,12 @@ class DenseNeuralNetworkRegressor_const_pt:
 
                 n_instance_observed += len(batch_val_x)
 
-        predictions = predictions.detach().numpy()
-        labels = labels.detach().numpy()
-
         if type(eval_metric) == str:
-            metric = eval_metric_function()
+            metric = eval_metric_function().to(self.device)
             metric.update(labels, predictions)
             metric_value = metric.compute()
         else:
-            metric_value = eval_metric(labels, predictions)
+            metric_value = eval_metric(labels.to(torch.device('cpu')), predictions.to(torch.device('cpu')))
 
 
         print(f'\t\tVal Avg Loss: {total_loss/n_instance_observed:.4f},', f'Val {eval_metric} (Metric)', np.round(float(metric_value), 6))
@@ -1175,18 +1139,19 @@ class DenseNeuralNetworkRegressor_shrink_pt:
         else:
             eval_metric_function = self.eval_metric
 
-        # Training loop
+         # Training loop
         for epoch in range(self.num_epochs):
 
             n_instance_observed = 0
 
             total_loss = 0
 
-            if (epoch+1)%100 == 0:
-                predictions = torch.tensor([])
-                labels = torch.tensor([])
+            if self.verbose:
+                predictions = torch.tensor([]).to(self.device)
+                labels = torch.tensor([]).to(self.device)
 
-            for batch_idx, (batch_train_x, batch_train_y) in enumerate(train_loader):
+            for batch_idx, (batch_train_x, batch_train_y) in tqdm(enumerate(train_loader)):
+
 
                 batch_train_x, batch_train_y = batch_train_x.to(self.device), batch_train_y.to(self.device)
 
@@ -1195,21 +1160,14 @@ class DenseNeuralNetworkRegressor_shrink_pt:
                 target = batch_train_y.view(-1, 1)  # Reshape target tensor to match the size of the output
                 loss = self.criterion(outputs, target)
 
-                # Lasso regularization
-                l1_regularization = torch.tensor(0.).to(self.device)
-
-                for param in self.model.parameters():
-                    l1_regularization += torch.norm(param, p=1)
-                loss += self.lambda_lasso * l1_regularization
-
                 total_loss += loss.item()*len(batch_train_x)
 
                 n_instance_observed += len(batch_train_x)
 
-                if (epoch+1)%100 == 0:
+                if self.verbose:
 
-                    predictions = torch.cat([predictions, outputs.to(torch.device('cpu'))])
-                    labels = torch.cat([labels, target.to(torch.device('cpu'))])
+                    predictions = torch.cat([predictions, outputs.detach()])
+                    labels = torch.cat([labels, target.detach()])
 
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -1223,27 +1181,22 @@ class DenseNeuralNetworkRegressor_shrink_pt:
             # Print the progress
             if self.verbose:
 
-                if (epoch + 1) % 100 == 0:
+                if type(self.eval_metric) == str:
+                    metric = eval_metric_function().to(self.device)
+                    metric.update(labels, predictions)
+                    metric_value = metric.compute()
+                else:
+                    metric_value = self.eval_metric(labels.to(torch.device('cpu')), predictions.to(torch.device('cpu'))) # todo: easy for crashes when converting back to cpu
 
-                    predictions = predictions.detach().numpy()
-                    labels = labels.detach().numpy()
-                    
-                    if type(self.eval_metric) == str:
-                        metric = eval_metric_function()
-                        metric.update(labels, predictions)
-                        metric_value = metric.compute()
-                    else:
-                        metric_value = self.eval_metric(labels, predictions)
+                print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
 
-                    print(f'Epoch [{epoch+1}/{self.num_epochs}], Train Avg Loss: {total_loss/n_instance_observed:.4f}', f'Train {self.eval_metric} (Metric)', np.round(float(metric_value), 6))
-
-                    if val_x is not None and val_y is not None:
-                        self.eval(val_x, val_y, self.eval_metric)
+                if val_x is not None and val_y is not None:
+                    self.eval(val_x, val_y, self.eval_metric)
 
 
 
     def predict(self, x):
-    
+
         self.model.eval()
 
         predictions = []
@@ -1255,24 +1208,25 @@ class DenseNeuralNetworkRegressor_shrink_pt:
         with torch.no_grad():
 
             for batch_idx, batch_predict_x in enumerate(predict_loader):
+
+                batch_predict_x = batch_predict_x.to(self.device)
  
-                batch_prediction = self.model(batch_predict_x, training=False).cpu()
+                batch_prediction = self.model(batch_predict_x, training=False).to(torch.device('cpu'))
                 batch_prediction_numpy = batch_prediction.numpy().flatten()
                 predictions.extend(batch_prediction_numpy)
 
         return predictions
     
 
-
     def save(self, address):
         
         torch.save(self.model.state_dict(), f'{address}.pt')
     
 
-
     def load(self, address):
 
         self.model.load_state_dict(torch.load(f'{address}.pt'), map_location=self.device)
+
 
     
     def eval(self, val_x, val_y, eval_metric = None):
@@ -1298,8 +1252,8 @@ class DenseNeuralNetworkRegressor_shrink_pt:
 
         with torch.no_grad():
 
-            predictions = torch.tensor([])
-            labels = torch.tensor([])
+            predictions = torch.tensor([]).to(self.device)
+            labels = torch.tensor([]).to(self.device)
 
             for batch_idx, (batch_val_x, batch_val_y) in enumerate(val_loader):
 
@@ -1310,8 +1264,8 @@ class DenseNeuralNetworkRegressor_shrink_pt:
                 outputs = self.model(batch_val_x)
                 target = batch_val_y.view(-1, self.num_labels)  # Reshape target tensor to match the size of the output
 
-                predictions = torch.cat([predictions, outputs.to(torch.device('cpu'))])
-                labels = torch.cat([labels, target.to(torch.device('cpu'))])
+                predictions = torch.cat([predictions, outputs.detach()])
+                labels = torch.cat([labels, target.detach()])
 
                 loss = self.criterion(outputs, target)
 
@@ -1319,15 +1273,12 @@ class DenseNeuralNetworkRegressor_shrink_pt:
 
                 n_instance_observed += len(batch_val_x)
 
-        predictions = predictions.detach().numpy()
-        labels = labels.detach().numpy()
-
         if type(eval_metric) == str:
-            metric = eval_metric_function()
+            metric = eval_metric_function().to(self.device)
             metric.update(labels, predictions)
             metric_value = metric.compute()
         else:
-            metric_value = eval_metric(labels, predictions)
+            metric_value = eval_metric(labels.to(torch.device('cpu')), predictions.to(torch.device('cpu')))
 
 
         print(f'\t\tVal Avg Loss: {total_loss/n_instance_observed:.4f},', f'Val {eval_metric} (Metric)', np.round(float(metric_value), 6))
