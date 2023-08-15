@@ -20,6 +20,6 @@ def getMyPosition(pred_df, date):
     daily = [0 for i in range(50)]
 
     for stock in pred_df['stock'].unique():
-        daily[stock] = 10000 if pred_df[(pred_df['stock'] == stock) & (pred_df['date'] == date)]['pred'].values[0] == 1 else -10000
+        daily[stock-1] = 10000 if pred_df[(pred_df['stock'] == stock) & (pred_df['date'] == date)]['pred'].values[0] == 1 else -10000
 
     return daily
