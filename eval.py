@@ -22,6 +22,9 @@ print ("Loaded %d instruments for %d days" % (nInst, nt))
 
 currentPos = np.zeros(nInst)
 
+pred_df = pd.read_csv('pred.csv')
+
+
 def calcPL(prcHist):
     cash = 0
     curPos = np.zeros(nInst)
@@ -33,7 +36,7 @@ def calcPL(prcHist):
     (_,nt) = prcHist.shape
     for t in range(1,251): 
         prcHistSoFar = prcHist[:,:t]
-        newPosOrig = getPosition(prcHistSoFar)
+        newPosOrig = getPosition(pred_df, t-1)
         curPrices = prcHistSoFar[:,-1] #prcHist[:,t-1]
         posLimits = np.array([int(x) for x in dlrPosLimit / curPrices])
         clipPos = np.clip(newPosOrig, -posLimits, posLimits)
