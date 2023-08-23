@@ -16,14 +16,11 @@ def loadPrices(fn):
     nt, nInst = df.values.shape
     return (df.values).T
 
-pricesFile="./prices.txt"
+pricesFile="./data/prices.txt"
 prcAll = loadPrices(pricesFile)
 print ("Loaded %d instruments for %d days" % (nInst, nt))
 
 currentPos = np.zeros(nInst)
-
-pred_df = pd.read_csv('pred.csv')
-
 
 def calcPL(prcHist):
     cash = 0
@@ -34,9 +31,9 @@ def calcPL(prcHist):
     value = 0
     todayPLL = []
     (_,nt) = prcHist.shape
-    for t in range(1,251): 
+    for t in range(251,501): 
         prcHistSoFar = prcHist[:,:t]
-        newPosOrig = getPosition(pred_df, t-1)
+        newPosOrig = getPosition(prcHistSoFar)
         curPrices = prcHistSoFar[:,-1] #prcHist[:,t-1]
         posLimits = np.array([int(x) for x in dlrPosLimit / curPrices])
         clipPos = np.clip(newPosOrig, -posLimits, posLimits)
@@ -74,5 +71,3 @@ print ("StdDev(PL): %.2lf" % plstd)
 print ("annSharpe(PL): %.2lf " % sharpe)
 print ("totDvolume: %.0lf " % dvol)
 print ("Score: %.2lf" % score)
-
-
