@@ -6,9 +6,9 @@ import pandas as pd
 from statsmodels.tsa.stattools import coint, adfuller
 from sklearn.linear_model import LinearRegression
 
-SHORT_TERM = 5
+SHORT_TERM = 3
 LONG_TERM = 30
-PRICE_RANGE = 5
+PRICE_RANGE = 4
 
 nInst = 50
 currentPos = np.zeros(nInst)
@@ -33,11 +33,6 @@ def getMyPosition(prcSoFar):
         long_mean = single_stock_data.loc[day - (LONG_TERM-1): (day-1), 'closePrice'].mean()
         short_mean = single_stock_data.loc[day - (SHORT_TERM-1): (day-1), 'closePrice'].mean()
         today_sign = np.sign(short_mean - long_mean)
-
-        # long_mean = single_stock_data.loc[day - (LONG_TERM-2): (day-2), 'closePrice'].mean()
-        # short_mean = single_stock_data.loc[day - (SHORT_TERM-2): (day-2), 'closePrice'].mean()
-        # diff_sum = sum(long_mean-short_mean)
-        # yesterday_sign = np.sign(short_mean - long_mean)
 
         # Determine crossover
         # if today_sign != yesterday_sign: crossover = True
@@ -64,13 +59,14 @@ def getMyPosition(prcSoFar):
             # value = 0
             # currentPos[stock] = value//currentPrices[stock]
             pass
-        elif np.abs(n_day_diff) >= amp[stock]/2:
+        elif np.abs(n_day_diff) >= amp[stock]/1.5:
             value = 0
             currentPos[stock] = value//currentPrices[stock]
             
         else:
-            value = 1638.5303*np.arctanh((today_sign * n_day_diff)/(amp[stock]/2))
+            # value = 1638.5303*np.arctanh((today_sign * n_day_diff)/(amp[stock]/2))
             # value = 20000/np.pi * np.arctan(5*(n_day_diff-amp[stock]/6)/(amp[stock]/2-amp[stock]/6))
+            value = today_sign * 10000
             currentPos[stock] = value//currentPrices[stock]
 	
             
