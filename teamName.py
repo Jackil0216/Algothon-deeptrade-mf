@@ -6,8 +6,7 @@ import pandas as pd
 from statsmodels.tsa.stattools import coint, adfuller
 from sklearn.linear_model import LinearRegression
 
-nInst=50
-currentPos = np.zeros(nInst)
+
 selected_pairs = 0
 call = 0
 
@@ -15,16 +14,18 @@ def getMyPosition(prcSoFar):
 	global call
 	day = prcSoFar.shape[1]
 	train_data = data_process(prcSoFar)
-	# print(train_data)
-        
-	if (day-1)%5 == 0 or call == 0:
+
+    
+	nInst = 50
+	currentPos = np.zeros(nInst)
+	# (day-1)%25 == 0 or
+	if  call == 0:
 		colint_stock_list_ct = find_coint(train_data)
 		moving_avg = trend_smoothing(train_data, day)
 		trend_moving_avg = find_trend(moving_avg, colint_stock_list_ct)
 		global selected_pairs 
 		selected_pairs = find_detrended_pairs(trend_moving_avg, train_data, colint_stock_list_ct)
 
-	global currentPos
 	nInst, nt = prcSoFar.shape
 	currentPrices = prcSoFar[:,nt-1] # price of last day
 	# For selected pairs, calculate the price difference on the last day
@@ -61,7 +62,11 @@ def getMyPosition(prcSoFar):
 		
 		currentPos[stock_i] -= np.floor(principal_ij/currentPrices[stock_i])
 		currentPos[stock_j] += np.floor(principal_ij/currentPrices[stock_j])
-	
+	# 	print(f"{stock_i}, {-np.floor(principal_ij/currentPrices[stock_i])}")
+	# 	print(f"{stock_j}, {np.floor(principal_ij/currentPrices[stock_j])}")
+                
+	# print(currentPos)
+                
 	call += 1
 	return currentPos
 
