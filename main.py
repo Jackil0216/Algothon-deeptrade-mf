@@ -3,12 +3,22 @@
 import numpy as np
 import pandas as pd
 
-SHORT_TERM = 3
-LONG_TERM = 30
-PRICE_RANGE = 4
+SHORT_TERM = 3              # Short term average
+LONG_TERM = 30              # Long term average
+PRICE_RANGE = 5             # The period to calculate price difference
+AMP_WINDOW = 100            # The period to get stock amplitude
+
+INCREASE_HOLDING = 500      # Price to increase holding
+DECREASE_HOLDING = 500      # Price to decrease holding
+AMP_LO_THRESHOLD = 10       # The threshold when price movement is considered low
+AMP_HI_THRESHOLD = 1.5      # The threshold when price movement is considered high
 
 nInst = 50
 currentPos = np.zeros(nInst)
+
+SMOOTH_INCREASE_STOCKS = []
+SMOOTH_DECREASE_STOCKS = []
+NUTURAL_STOCKS = []
 
 def getMyPosition(prcSoFar):
 	
@@ -27,21 +37,26 @@ def getMyPosition(prcSoFar):
         single_stock_data.index = range(len(single_stock_data))
 
         # Use short term and long term average to determine sign
-        long_mean = single_stock_data.loc[day - (LONG_TERM-1): (day-1), 'closePrice'].mean()
-        short_mean = single_stock_data.loc[day - (SHORT_TERM-1): (day-1), 'closePrice'].mean()
+        long_mean = single_stock_data.loc[day - LONG_TERM: (day-1), 'closePrice'].mean()
+        short_mean = single_stock_data.loc[day - SHORT_TERM: (day-1), 'closePrice'].mean()
         today_sign = np.sign(short_mean - long_mean)
 
         # Use a price window to make decision
         n_day_diff = single_stock_data.loc[day-PRICE_RANGE, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
+        n_day_range = max(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice']) - min(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice'])
         
-        if n_day_diff <= amp[stock]/8:
+
+        if np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD:
             pass
-        elif np.abs(n_day_diff) >= amp[stock]/1.5:
-            value = 0
-            currentPos[stock] = value//currentPrices[stock]
+            
+        elif np.abs(n_day_diff) >= amp[stock]/AMP_HI_THRESHOLD:
+            value = today_sign * DECREASE_HOLDING
+            currentPos[stock] -= value//currentPrices[stock]
+    
         else:
-            value = today_sign * 1000
+            value = today_sign * INCREASE_HOLDING
             currentPos[stock] += value//currentPrices[stock]
+
 	
     return currentPos
 
@@ -76,6 +91,6 @@ def range_so_far(data, day):
         single_stock_data = data[data['stock'] == j]
         single_stock_data.index = range(len(single_stock_data))
 
-        base_range = max(single_stock_data.loc[0:day-1, 'closePrice']) -  min(single_stock_data.loc[0:100, 'closePrice'])
+        base_range = max(single_stock_data.loc[day-AMP_WINDOW:day-1, 'closePrice']) -  min(single_stock_data.loc[day-AMP_WINDOW:day-1, 'closePrice'])
         amp.append(base_range)
     return amp
