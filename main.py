@@ -20,10 +20,6 @@ MSE_THRESHOLD = 0.02        # The threshold to control price volatility
 nInst = 50
 currentPos = np.zeros(nInst)
 
-SMOOTH_INCREASE_STOCKS = []
-SMOOTH_DECREASE_STOCKS = []
-NUTURAL_STOCKS = []
-
 def getMyPosition(prcSoFar):
 	
     day = prcSoFar.shape[1]
