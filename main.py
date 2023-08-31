@@ -2,6 +2,9 @@
 
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+
 
 SHORT_TERM = 3              # Short term average
 LONG_TERM = 30              # Long term average
@@ -12,6 +15,7 @@ INCREASE_HOLDING = 500      # Price to increase holding
 DECREASE_HOLDING = 500      # Price to decrease holding
 AMP_LO_THRESHOLD = 10       # The threshold when price movement is considered low
 AMP_HI_THRESHOLD = 1.5      # The threshold when price movement is considered high
+MSE_THRESHOLD = 0.02        # The threshold to control price volatility
 
 nInst = 50
 currentPos = np.zeros(nInst)
@@ -43,10 +47,13 @@ def getMyPosition(prcSoFar):
 
         # Use a price window to make decision
         n_day_diff = single_stock_data.loc[day-PRICE_RANGE, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
-        n_day_range = max(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice']) - min(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice'])
-        
 
-        if np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD:
+        # Calculate the MSE of price movement during the range
+        n_day_gap = np.diff(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice'])
+        LR = LinearRegression(n_jobs=-1).fit(np.array(range(PRICE_RANGE-1)).reshape(-1,1), n_day_gap.reshape(-1,1))
+        n_day_mse = mean_squared_error(n_day_gap, LR.predict(np.array(range(PRICE_RANGE-1)).reshape(-1,1)))
+        
+        if np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or n_day_mse > MSE_THRESHOLD:
             pass
             
         elif np.abs(n_day_diff) >= amp[stock]/AMP_HI_THRESHOLD:
