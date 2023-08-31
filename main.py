@@ -16,6 +16,7 @@ DECREASE_HOLDING = 500      # Price to decrease holding
 AMP_LO_THRESHOLD = 10       # The threshold when price movement is considered low
 AMP_HI_THRESHOLD = 1.5      # The threshold when price movement is considered high
 MSE_THRESHOLD = 0.02        # The threshold to control price volatility
+SLOPE_THRESHOLD = 0.4       # The threshold to control LR slope
 
 nInst = 50
 currentPos = np.zeros(nInst)
@@ -53,7 +54,7 @@ def getMyPosition(prcSoFar):
         LR = LinearRegression(n_jobs=-1).fit(np.array(range(PRICE_RANGE-1)).reshape(-1,1), n_day_gap.reshape(-1,1))
         n_day_mse = mean_squared_error(n_day_gap, LR.predict(np.array(range(PRICE_RANGE-1)).reshape(-1,1)))
         
-        if np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or n_day_mse > MSE_THRESHOLD:
+        if np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or (n_day_mse > MSE_THRESHOLD and np.abs(LR.coef_) < SLOPE_THRESHOLD):
             pass
             
         elif np.abs(n_day_diff) >= amp[stock]/AMP_HI_THRESHOLD:
@@ -63,7 +64,6 @@ def getMyPosition(prcSoFar):
         else:
             value = today_sign * INCREASE_HOLDING
             currentPos[stock] += value//currentPrices[stock]
-
 	
     return currentPos
 
@@ -84,7 +84,6 @@ def data_process(prcAll):
             dates.append(day)
 
     stocks = []
-
     for stock in range(50):
         stocks.extend([stock]*prcAll.shape[1])
     full_data = pd.DataFrame({'date': dates, 'stock': stocks, 'closePrice': closePrice})
