@@ -52,7 +52,7 @@ def getMyPosition(prcSoFar):
 
         # Use a price window to make decision
         n_day_diff = single_stock_data.loc[day-PRICE_RANGE, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
-        n_day_range = np.max(single_stock_data.loc[day-4:day-1, 'closePrice']) - np.min(single_stock_data.loc[day-4:day-1, 'closePrice'])
+        n_day_range = np.max(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice']) - np.min(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice'])
         two_day_diff = single_stock_data.loc[day-3, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
 
         # Calculate the MSE of price movement during the range
