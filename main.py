@@ -22,6 +22,9 @@ nInst = 50
 currentPos = np.zeros(nInst)
 yesterday_sign = np.zeros(nInst)
 
+STEADY_STOCKS = [12, 13, 14, 19, 20]
+VOLATILE_STOCKS = []
+
 def getMyPosition(prcSoFar):
 	
     day = prcSoFar.shape[1]
@@ -52,9 +55,9 @@ def getMyPosition(prcSoFar):
         n_day_mse = mean_squared_error(n_day_gap, LR.predict(np.array(range(PRICE_RANGE-1)).reshape(-1,1)))
         
         if yesterday_sign[stock] != 0 and yesterday_sign[stock] != today_sign:
-            # currentPos[stock] /= 2
+            currentPos[stock] = 0
             pass
-
+            
         elif np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or (n_day_mse > MSE_THRESHOLD and np.abs(LR.coef_) < SLOPE_THRESHOLD):
             pass
             
