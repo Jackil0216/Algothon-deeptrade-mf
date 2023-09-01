@@ -6,27 +6,28 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 
-SHORT_TERM = 3              # Short term average
-LONG_TERM = 30              # Long term average
+SHORT_TERM = 2              # Short term average
+LONG_TERM = 15              # Long term average
 PRICE_RANGE = 5             # The period to calculate price difference
-AMP_WINDOW = 100            # The period to get stock amplitude
+AMP_WINDOW = 75             # The period to get stock amplitude
 
 INCREASE_HOLDING = 500      # Price to increase holding
 DECREASE_HOLDING = 500      # Price to decrease holding
-AMP_LO_THRESHOLD = 10       # The threshold when price movement is considered low
-AMP_HI_THRESHOLD = 1.5      # The threshold when price movement is considered high
+AMP_LO_THRESHOLD = 12.5     # The threshold when price movement is considered low
+AMP_HI_THRESHOLD = 0.5      # The threshold when price movement is considered high
 MSE_THRESHOLD = 0.02        # The threshold to control price volatility
-SLOPE_THRESHOLD = 0.4       # The threshold to control LR slope
+SLOPE_THRESHOLD = 0.2       # The threshold to control LR slope
 
 nInst = 50
 currentPos = np.zeros(nInst)
+yesterday_sign = np.zeros(nInst)
 
 def getMyPosition(prcSoFar):
 	
     day = prcSoFar.shape[1]
     train_data = data_process(prcSoFar)
 
-    global currentPos
+    global currentPos, yesterday_sign
 
     currentPrices = prcSoFar[:,day-1] # price of last day
 
@@ -50,7 +51,11 @@ def getMyPosition(prcSoFar):
         LR = LinearRegression(n_jobs=-1).fit(np.array(range(PRICE_RANGE-1)).reshape(-1,1), n_day_gap.reshape(-1,1))
         n_day_mse = mean_squared_error(n_day_gap, LR.predict(np.array(range(PRICE_RANGE-1)).reshape(-1,1)))
         
-        if np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or (n_day_mse > MSE_THRESHOLD and np.abs(LR.coef_) < SLOPE_THRESHOLD):
+        if yesterday_sign[stock] != 0 and yesterday_sign[stock] != today_sign:
+            # currentPos[stock] /= 2
+            pass
+
+        elif np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or (n_day_mse > MSE_THRESHOLD and np.abs(LR.coef_) < SLOPE_THRESHOLD):
             pass
             
         elif np.abs(n_day_diff) >= amp[stock]/AMP_HI_THRESHOLD:
@@ -60,6 +65,8 @@ def getMyPosition(prcSoFar):
         else:
             value = today_sign * INCREASE_HOLDING
             currentPos[stock] += value//currentPrices[stock]
+
+        yesterday_sign[stock] = today_sign
 	
     return currentPos
 
