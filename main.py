@@ -11,8 +11,7 @@ LONG_TERM = 15                  # Long term average
 PRICE_RANGE = 5                 # The period to calculate price difference
 AMP_WINDOW = 75                 # The period to get stock amplitude
 
-INCREASE_HOLDING = 500          # Price to increase holding
-DECREASE_HOLDING = 500          # Price to decrease holding
+CHANGE_HOLDING = 500            # Price to change holding
 AMP_LO_THRESHOLD = 12.5         # The threshold when price movement is considered low
 AMP_HI_THRESHOLD = 0.5          # The threshold when price movement is considered high
 PRICE_CHANGE_THRESHOLD = 0.025
@@ -68,11 +67,11 @@ def getMyPosition(prcSoFar):
             pass
             
         elif np.abs(n_day_diff) >= amp[stock]/AMP_HI_THRESHOLD:
-            value = today_sign * DECREASE_HOLDING
+            value = today_sign * CHANGE_HOLDING
             currentPos[stock] -= value//currentPrices[stock]
     
         else:
-            value = today_sign * INCREASE_HOLDING
+            value = today_sign * CHANGE_HOLDING
             currentPos[stock] += value//currentPrices[stock]
 
         yesterday_sign[stock] = today_sign
