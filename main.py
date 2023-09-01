@@ -22,7 +22,8 @@ nInst = 50
 currentPos = np.zeros(nInst)
 yesterday_sign = np.zeros(nInst)
 
-STEADY_STOCKS = [12, 13, 14, 19, 20]
+
+STEADY_STOCKS = [12, 13, 14, 19, 20, 33, 34, 37, 38, 40, 44]
 VOLATILE_STOCKS = []
 
 def getMyPosition(prcSoFar):
@@ -48,17 +49,18 @@ def getMyPosition(prcSoFar):
 
         # Use a price window to make decision
         n_day_diff = single_stock_data.loc[day-PRICE_RANGE, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
+        n_day_range = np.max(single_stock_data.loc[day-4:day-1, 'closePrice']) - np.min(single_stock_data.loc[day-4:day-1, 'closePrice'])
+        two_day_diff = single_stock_data.loc[day-3, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
 
         # Calculate the MSE of price movement during the range
         n_day_gap = np.diff(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice'])
         LR = LinearRegression(n_jobs=-1).fit(np.array(range(PRICE_RANGE-1)).reshape(-1,1), n_day_gap.reshape(-1,1))
         n_day_mse = mean_squared_error(n_day_gap, LR.predict(np.array(range(PRICE_RANGE-1)).reshape(-1,1)))
         
-        if yesterday_sign[stock] != 0 and yesterday_sign[stock] != today_sign:
+        if currentPos[stock] * n_day_range * np.sign(n_day_diff) > np.abs(currentPos[stock] * currentPrices[stock]) * 0.025 and n_day_mse > np.abs(n_day_diff*0.02) or (LR.coef_ * currentPos[stock] < 0 and np.abs(LR.coef_) > 2):
             currentPos[stock] = 0
-            pass
             
-        elif np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or (n_day_mse > MSE_THRESHOLD and np.abs(LR.coef_) < SLOPE_THRESHOLD):
+        elif np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or (n_day_mse > np.abs(n_day_diff*0.25) and np.abs(LR.coef_) < SLOPE_THRESHOLD):
             pass
             
         elif np.abs(n_day_diff) >= amp[stock]/AMP_HI_THRESHOLD:
