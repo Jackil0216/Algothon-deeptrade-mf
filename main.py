@@ -6,75 +6,70 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 
-SHORT_TERM = 2                  # Short term average
-LONG_TERM = 15                  # Long term average
-PRICE_RANGE = 5                 # The period to calculate price difference
-AMP_WINDOW = 75                 # The period to get stock amplitude
+SHORT_TERM = 4              # Short term average
+LONG_TERM = 15              # Long term average
+PRICE_RANGE = 7             # The period to calculate price difference
+AMP_WINDOW = 75            # The period to get stock amplitude
 
 CHANGE_HOLDING = 500            # Price to change holding
-AMP_LO_THRESHOLD = 12.5         # The threshold when price movement is considered low
-AMP_HI_THRESHOLD = 0.5          # The threshold when price movement is considered high
-PRICE_CHANGE_THRESHOLD = 0.025
-MSE_THRESHOLD_2 = 0.02
-SLOPE_THRESHOLD_2 = 2
-MSE_THRESHOLD_1 = 0.25          # The threshold to control price volatility
-SLOPE_THRESHOLD_1 = 0.2         # The threshold to control LR slope
-
+AMP_LO_THRESHOLD = 7.5       # The threshold when price movement is considered low
+AMP_HI_THRESHOLD = 1
+PRICE_CHANGE_THRESHOLD = 0.01
+MSE_THRESHOLD_2 = 0.04
+SLOPE_THRESHOLD_2 = 2   # The threshold when price movement is considered high
+MSE_THRESHOLD_1 = 0.05       # The threshold to control price volatility
+SLOPE_THRESHOLD_1 = 0.05       # The threshold to control LR slope
 
 nInst = 50
 currentPos = np.zeros(nInst)
-yesterday_sign = np.zeros(nInst)
-
-
-STEADY_STOCKS = [12, 13, 14, 19, 20, 33, 34, 37, 38, 40, 44]
-VOLATILE_STOCKS = []
 
 def getMyPosition(prcSoFar):
 	
-    day = prcSoFar.shape[1]
-    train_data = data_process(prcSoFar)
+    global currentPos
 
-    global currentPos, yesterday_sign
+    currentPrices = prcSoFar[:,-1] # price of last day
 
-    currentPrices = prcSoFar[:,day-1] # price of last day
-
-    amp = range_so_far(train_data, day)
+    amp = range_so_far(prcSoFar)
 	
     # Get long term and short term average prices
     for stock in range(50):
-        single_stock_data = train_data[train_data['stock'] == stock]
-        single_stock_data.index = range(len(single_stock_data))
+        single_stock_data = prcSoFar[stock]
 
         # Use short term and long term average to determine sign
-        long_mean = single_stock_data.loc[day - LONG_TERM: (day-1), 'closePrice'].mean()
-        short_mean = single_stock_data.loc[day - SHORT_TERM: (day-1), 'closePrice'].mean()
+        long_mean = single_stock_data[-LONG_TERM:].mean()
+        short_mean = single_stock_data[-SHORT_TERM:].mean()
         today_sign = np.sign(short_mean - long_mean)
 
         # Use a price window to make decision
-        n_day_diff = single_stock_data.loc[day-PRICE_RANGE, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
-        n_day_range = np.max(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice']) - np.min(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice'])
-        two_day_diff = single_stock_data.loc[day-3, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
+        n_day_diff = single_stock_data[-PRICE_RANGE] - single_stock_data[-1]
+        n_day_range = np.max(single_stock_data[-PRICE_RANGE:]) - np.min(single_stock_data[-PRICE_RANGE:])
+        # two_day_diff = single_stock_data.loc[day-3, 'closePrice'] - single_stock_data.loc[day-1, 'closePrice']
 
         # Calculate the MSE of price movement during the range
-        n_day_gap = np.diff(single_stock_data.loc[day-PRICE_RANGE:day-1, 'closePrice'])
-        LR = LinearRegression(n_jobs=-1).fit(np.array(range(PRICE_RANGE-1)).reshape(-1,1), n_day_gap.reshape(-1,1))
-        n_day_mse = mean_squared_error(n_day_gap, LR.predict(np.array(range(PRICE_RANGE-1)).reshape(-1,1)))
+        n_day_gap = np.diff(single_stock_data[-PRICE_RANGE:])
+        LR = LinearRegression(n_jobs=-1).fit(np.array(range(PRICE_RANGE-1)).reshape(-1, 1), n_day_gap.reshape(-1,1))
+        n_day_mse = mean_squared_error(n_day_gap, LR.predict(np.array(range(PRICE_RANGE-1)).reshape(-1, 1)))
         
-        if currentPos[stock] * n_day_range * np.sign(n_day_diff) > np.abs(currentPos[stock] * currentPrices[stock]) * PRICE_CHANGE_THRESHOLD and n_day_mse > np.abs(n_day_diff*MSE_THRESHOLD_2) or (LR.coef_ * currentPos[stock] < 0 and np.abs(LR.coef_) > SLOPE_THRESHOLD_2):
+        # Position decition making
+
+        # Stop loss
+        if currentPos[stock] * n_day_range * np.sign(n_day_diff) > np.abs(currentPos[stock] * currentPrices[stock]) * PRICE_CHANGE_THRESHOLD and n_day_mse > np.abs(n_day_diff*MSE_THRESHOLD_2) or ((LR.coef_ * currentPos[stock] < 0)[0][0] and (np.abs(LR.coef_) > SLOPE_THRESHOLD_2)[0][0]):
             currentPos[stock] = 0
-            
-        elif np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or (n_day_mse > np.abs(n_day_diff*MSE_THRESHOLD_1) and np.abs(LR.coef_) < SLOPE_THRESHOLD_1):
+
+        # Keep current position unchanged
+        elif np.abs(n_day_diff) <= amp[stock]/AMP_LO_THRESHOLD or (n_day_mse > np.abs(n_day_diff*MSE_THRESHOLD_1) and (np.abs(LR.coef_) < SLOPE_THRESHOLD_1)[0][0]):
             pass
             
+        # Decrease holding
         elif np.abs(n_day_diff) >= amp[stock]/AMP_HI_THRESHOLD:
             value = today_sign * CHANGE_HOLDING
             currentPos[stock] -= value//currentPrices[stock]
     
+        # Increase holding 
         else:
             value = today_sign * CHANGE_HOLDING
             currentPos[stock] += value//currentPrices[stock]
-
-        yesterday_sign[stock] = today_sign
+        
 	
     return currentPos
 
@@ -102,12 +97,11 @@ def data_process(prcAll):
     return full_data
 
 
-def range_so_far(data, day):
+def range_so_far(data):
     amp = []
     for j in range(50):
-        single_stock_data = data[data['stock'] == j]
-        single_stock_data.index = range(len(single_stock_data))
+        single_stock_data = data[j]
 
-        base_range = max(single_stock_data.loc[day-AMP_WINDOW:day-1, 'closePrice']) -  min(single_stock_data.loc[day-AMP_WINDOW:day-1, 'closePrice'])
+        base_range = np.max(single_stock_data[-AMP_WINDOW:]) -  np.min(single_stock_data[-AMP_WINDOW:])
         amp.append(base_range)
     return amp
